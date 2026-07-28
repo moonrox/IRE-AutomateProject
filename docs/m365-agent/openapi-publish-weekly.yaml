@@ -1,0 +1,123 @@
+openapi: 3.0.1
+info:
+  title: IRE Weekly Publisher
+  description: >
+    Publishes the IRE weekly status report to the SharePoint 'weeklies' document
+    library and optionally emails it. Backed by the same Microsoft Graph upload
+    logic as run_weekly.py (GraphClient.upload_to_library / send_mail). Intended
+    to be registered as an action ("API plugin") for the "Weekly Summary Writer"
+    Microsoft 365 Copilot agent so the agent can publish a weekly it has drafted.
+  version: "1.0.0"
+servers:
+  - url: https://ire-dashboard.amr.corp.intel.com
+    description: IRE FastAPI host (replace with the Azure Function URL if hosted separately)
+paths:
+  /api/weekly/publish:
+    post:
+      operationId: publishWeekly
+      summary: Publish a weekly status report to SharePoint (and optionally email it).
+      description: >
+        Renders a Word (.docx) weekly report from the supplied Progress, Blockers,
+        and Next Week bullets, uploads it to the SharePoint 'weeklies' library as
+        WW{ww}-{author}-Weekly.docx, and returns the SharePoint link. Call this
+        only after the summary text has been drafted. Do not tell the user the
+        report is published unless the response contains a sharepoint_url.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishWeeklyRequest'
+      responses:
+        "200":
+          description: Weekly published successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishWeeklyResponse'
+        "401":
+          description: Missing or invalid API key / authentication.
+        "500":
+          description: Rendering, upload, or email failed. See message.
+      security:
+        - ApiKeyAuth: []
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: >
+        Quick-start auth. For production, replace with Microsoft Entra ID
+        (OAuth 2.0 authorization code) so the call runs as the signed-in user and
+        inherits their SharePoint permissions to the weeklies library.
+  schemas:
+    PublishWeeklyRequest:
+      type: object
+      required: [ww, progress]
+      properties:
+        ww:
+          type: string
+          description: Intel work-week label, e.g. "WW31". If omitted, the service uses the current work week.
+          example: "WW31"
+        year:
+          type: integer
+          description: Four-digit year. Defaults to the current year.
+          example: 2026
+        author:
+          type: string
+          description: Report author display name. Defaults to the configured REPORT_AUTHOR.
+          example: "John Monroe"
+        progress:
+          type: array
+          description: Progress bullet lines for the report body.
+          items:
+            type: string
+          example:
+            - "IRE Dashboard - AskIREData model selection, IAP column injection, CMDB host fix"
+            - "IRE-python-template - documented opt-in semantic-search embeddings step"
+        blockers:
+          type: array
+          description: Blockers / Risks bullet lines. Empty yields "None."
+          items:
+            type: string
+          example:
+            - "OneNote automation blocked by Notes.ReadWrite.All admin-consent gap"
+        next_week:
+          type: array
+          description: Next Week bullet lines. Empty yields "TBD."
+          items:
+            type: string
+          example:
+            - "Extend app-to-host mapping coverage on unresolved Dynatrace nodes"
+        upload:
+          type: boolean
+          description: Upload the rendered .docx to SharePoint. Default true.
+          default: true
+        email:
+          type: boolean
+          description: Email the report (with the SharePoint link in the body) after upload. Default true.
+          default: true
+    PublishWeeklyResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [published, built_only, failed]
+          description: Outcome of the request.
+          example: published
+        sharepoint_url:
+          type: string
+          description: Web URL of the uploaded weekly in the 'weeklies' library. Present when status=published.
+          example: "https://intel.sharepoint.com/sites/ire/Shared%20Documents/weeklies/WW31-JohnMonroe-Weekly.docx"
+        file_name:
+          type: string
+          example: "WW31-JohnMonroe-Weekly.docx"
+        emailed_to:
+          type: array
+          items:
+            type: string
+          example: ["john.monroe@intel.com"]
+        message:
+          type: string
+          description: Human-readable detail, especially on failure.

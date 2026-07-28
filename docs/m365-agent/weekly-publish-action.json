@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/copilot/plugin/v2.1/schema.json",
+  "schema_version": "v2.1",
+  "namespace": "ireweekly",
+  "name_for_human": "IRE Weekly Publisher",
+  "description_for_human": "Publishes the IRE weekly status report to the SharePoint 'weeklies' library and emails the link.",
+  "description_for_model": "Use this to publish a weekly status report the agent has drafted. Provide ww, author, and the progress, blockers, and next_week bullet arrays. The action renders a Word document, uploads it to the SharePoint weeklies library, optionally emails it, and returns a sharepoint_url. Only state that the weekly is published if a sharepoint_url is returned.",
+  "functions": [
+    {
+      "name": "publishWeekly",
+      "description": "Render the weekly .docx, upload it to the SharePoint weeklies library, and optionally email the link.",
+      "capabilities": {
+        "response_semantics": {
+          "data_path": "$",
+          "properties": {
+            "title": "$.file_name",
+            "url": "$.sharepoint_url"
+          }
+        }
+      }
+    }
+  ],
+  "runtimes": [
+    {
+      "type": "OpenApi",
+      "auth": {
+        "type": "ApiKeyPluginVault",
+        "reference_id": "REPLACE_WITH_TEAMS_TOOLKIT_OR_ADMIN_VAULT_REFERENCE"
+      },
+      "spec": {
+        "url": "openapi-publish-weekly.yaml"
+      },
+      "run_for_functions": ["publishWeekly"]
+    }
+  ],
+  "capabilities": {
+    "localization": {}
+  },
+  "_notes": "For production, replace the ApiKeyPluginVault auth with OAuthPluginVault (Microsoft Entra ID) so calls run as the signed-in user and inherit SharePoint permissions. This manifest is the 'action' half of a declarative agent; reference it from the agent's declarativeAgent.json under 'actions'."
+}
