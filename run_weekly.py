@@ -97,11 +97,13 @@ def main() -> int:
     graph = GraphClient(tenant, client, site)
 
     upload_ok = False
+    sharepoint_url = ""
     if not args.no_upload:
         try:
             folder = cfg.get("sharepoint_folder", "weeklies")
             url = graph.upload_to_library(folder, docx_name, docx_path)
             print(f"[weekly] Uploaded to SharePoint: {url}")
+            sharepoint_url = url
             upload_ok = True
         except GraphAuthError as exc:
             print(f"[weekly] AUTH ERROR (re-auth needed): {exc}")
@@ -114,9 +116,15 @@ def main() -> int:
             subject = email_cfg.get("subject_template", "IRE Weekly Status - {ww}").format(
                 ww=ww.label, year=ww.year)
             html = report_builder.markdown_to_html(md)
-            banner = ("<p style='color:#a00'><b>Note:</b> SharePoint upload did not "
-                      "complete this run; see attached/inline report.</p>" if not upload_ok
-                      and not args.no_upload else "")
+            if sharepoint_url:
+                banner = (f"<p><b>SharePoint:</b> "
+                          f"<a href=\"{sharepoint_url}\">{docx_name}</a> "
+                          f"(also attached)</p>")
+            elif not args.no_upload:
+                banner = ("<p style='color:#a00'><b>Note:</b> SharePoint upload did not "
+                          "complete this run; see attached/inline report.</p>")
+            else:
+                banner = ""
             graph.send_mail(email_cfg.get("to", []), subject, banner + html, docx_path)
             print(f"[weekly] Emailed report to {', '.join(email_cfg.get('to', []))}")
         except GraphAuthError as exc:
