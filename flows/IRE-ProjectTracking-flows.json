@@ -1,0 +1,33 @@
+{
+  "description": "Power Automate flow to read from and add items to IRE Project Tracking SharePoint list",
+  "siteUrl": "https://intel.sharepoint.com/sites/ire",
+  "listName": "IRE Project Tracking",
+  "listUrl": "https://intel.sharepoint.com/sites/ire/Lists/IRE%20Project%20Tracking/AllItems.aspx",
+  "flows": {
+    "readItems": {
+      "name": "IRE - Get Project Tracking Items",
+      "trigger": "Manual / HTTP Request",
+      "steps": [
+        "Trigger: Manually trigger a flow (or HTTP request)",
+        "Action: SharePoint - Get items (site: intel.sharepoint.com/sites/ire, list: IRE Project Tracking)",
+        "Action: Apply to each item (optional filtering)",
+        "Action: Return results (Respond to PowerApp or HTTP)"
+      ]
+    },
+    "addItem": {
+      "name": "IRE - Add Project Tracking Item",
+      "trigger": "Manual / HTTP Request",
+      "steps": [
+        "Trigger: Manually trigger a flow (or HTTP request)",
+        "Action: SharePoint - Create item (site: intel.sharepoint.com/sites/ire, list: IRE Project Tracking)",
+        "Action: Send email notification (optional)",
+        "Action: Return new item ID"
+      ]
+    }
+  },
+  "notes": [
+    "Build these flows in Power Automate web UI: https://make.powerautomate.com",
+    "Add them to the IREProjectTracking solution from the Solutions menu",
+    "Then export using: pac solution export --name IREProjectTracking --path ./solutions"
+  ]
+}

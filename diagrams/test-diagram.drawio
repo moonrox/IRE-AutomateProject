@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    <mxCell id="2" value="&lt;b&gt;IRE DrawIO Test Diagram&lt;/b&gt;  ·  Generated for deletion approval test" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;" vertex="1" parent="1">
+      <mxGeometry x="40" y="20" width="600" height="24" as="geometry" />
+    </mxCell>
+    <mxCell id="3" value="IRE-DrawIO.py" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="100" y="100" width="160" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="4" value="DiagramBuilder&#10;(drawio.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="340" y="100" width="160" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="5" value="Intel draw.io&#10;drawio-ai.intel.com" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="580" y="100" width="160" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="6" value=".drawio file&#10;(XML output)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+      <mxGeometry x="340" y="220" width="160" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="7" value="uses" style="endArrow=block;endFill=1;" edge="1" source="3" target="4" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="8" value="opens" style="endArrow=block;endFill=1;" edge="1" source="4" target="5" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="9" value="saves" style="endArrow=block;endFill=1;" edge="1" source="4" target="6" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+  </root>
+</mxGraphModel>

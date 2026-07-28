@@ -1,0 +1,45 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "PAC: Authenticate",
+      "type": "shell",
+      "command": "pac auth create",
+      "problemMatcher": []
+    },
+    {
+      "label": "PAC: Init Solution",
+      "type": "shell",
+      "command": "pac solution init --publisher-name MyPublisher --publisher-prefix mp",
+      "options": {
+        "cwd": "${workspaceFolder}/solutions"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "PAC: Export IRE Solution",
+      "type": "shell",
+      "command": "pac solution export --path ${workspaceFolder}/solutions --name IREProjectTracking --managed false",
+      "problemMatcher": []
+    },
+    {
+      "label": "PAC: Import IRE Solution",
+      "type": "shell",
+      "command": "pac solution import --path ${workspaceFolder}/solutions/IREProjectTracking.zip",
+      "problemMatcher": []
+    },
+    {
+      "label": "Trigger Flow via HTTP",
+      "type": "shell",
+      "command": "curl -X POST ${input:flowUrl} -H \"Content-Type: application/json\" -d '{\"trigger\": \"manual\"}'",
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "flowUrl",
+      "type": "promptString",
+      "description": "Enter your Power Automate HTTP trigger URL"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+[project]
+name = "ire-powerautomate"
+version = "1.0.0"
+description = "IRE PowerAutomate scripts for Microsoft Graph API (SharePoint + OneNote)"
+requires-python = ">=3.11"
+dependencies = [
+    "PyYAML>=6.0.0",
+]
+
+[project.scripts]
+assess-skills = "assess_skills:main"
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4.0",
+    "black>=24.0.0",
+    "mypy>=1.10.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "code-review-graph==2.3.7",
+    "jupyter>=1.0.0",
+    "ipykernel>=6.0.0",
+]
+
+# Black owns formatting - do not add [tool.ruff.format]
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+# Ruff owns linting only
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "N"]
+
+[tool.mypy]
+python_version = "3.11"
+
+[[tool.mypy.overrides]]
+module = ["msal", "msal_extensions", "msgraph.*", "kiota_abstractions.*", "azure.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

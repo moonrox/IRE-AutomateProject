@@ -1,0 +1,5 @@
+# Add runtime dependencies here, one per line.
+# Example:
+# requests>=2.32.0
+# python-dotenv>=1.0.0
+PyYAML>=6.0.0

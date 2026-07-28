@@ -1,0 +1,56 @@
+{
+  "author": "John Monroe",
+  "author_title": "Infrastructure Reliability Engineering  |  IRE Telemetry Lead / AI Evangelist",
+  "sharepoint_folder": "weeklies",
+  "sharepoint_name_template": "{ww}-JohnMonroe-Weekly.docx",
+  "email": {
+    "enabled": true,
+    "to": ["john.monroe@intel.com"],
+    "subject_template": "IRE Weekly Status - WW{ww} ({year})"
+  },
+  "notes_file": "weekly_notes.md",
+  "sources": [
+    {
+      "type": "git_repo",
+      "name": "IRE Dashboard",
+      "path": "\\\\iredev01\\scripts\\ire-dashboard",
+      "all_branches": true,
+      "note": "Primary active repo on the iredev01 dev server."
+    },
+    {
+      "type": "adr",
+      "name": "IRE Dashboard ADRs",
+      "path": "\\\\iredev01\\scripts\\ire-dashboard",
+      "all_branches": true,
+      "note": "Detect ADRs newly added this week (docs/adr/ADR-*.md and adr.html)."
+    },
+    {
+      "type": "git_scan",
+      "name": "Local ai_scripts repos",
+      "root": "C:\\scripts\\ai_scripts",
+      "max_depth": 1,
+      "exclude": ["ire-dashboard"],
+      "note": "Auto-discovers every git repo under the local ai_scripts tree."
+    },
+    {
+      "type": "git_scan",
+      "name": "UNC dev01 scripts repos",
+      "root": "\\\\iredev01\\scripts",
+      "max_depth": 1,
+      "exclude": ["ire-dashboard"],
+      "note": "Auto-discovers every git repo under the UNC dev server share."
+    },
+    {
+      "type": "fs_mtime",
+      "name": "AI Adoption Exploration",
+      "path": "C:\\scripts\\ai_scripts\\jhu\\AI_Adoption_Exploration",
+      "note": "Not a git repo yet - fall back to file-mtime change scan."
+    }
+  ],
+  "email_source": {
+    "enabled": false,
+    "note": "Phase 2: pull relevant Outlook threads via Graph Mail.Read.",
+    "folders": ["Inbox", "Sent Items"],
+    "subject_keywords": ["IRE", "backlog", "weekly", "ADR"]
+  }
+}

@@ -1,0 +1,117 @@
+WW22 - Week of May 25-29, 2026
+John Monroe | Infrastructure Reliability Engineering
+===============================================================
+
+SUMMARY
+-------
+This week focused on building scripted automation to connect local development
+tools directly to Intel's Microsoft 365 environment - specifically SharePoint
+list management and Teams OneNote integration - using the Microsoft Graph API.
+No Power Automate flows, no app registration, no IT tickets required (except
+one pending for OneNote).
+
+
+FEATURES BUILT
+--------------
+
+1. SHAREPOINT LIST AUTOMATION (IRE Project Tracking)
+   - Built a PowerShell script (IRE-SharePoint.ps1) that reads and writes
+     directly to the IRE Project Tracking SharePoint list via Graph API.
+   - Authentication uses Microsoft device code flow (one-time browser
+     sign-in, then auto-refreshes silently). No stored passwords.
+   - Supported operations: GetItems, CreateItem, UpdateItem, DeleteItem.
+   - Delete requires typing YES to confirm -- prevents accidental data loss.
+   - Created the first KPI project item in the live list:
+       [REQ4-004] Where are we blind? view
+       Assigned to: Monroe, John
+       Status: New | Priority: High | Phase: Planning | Segment: Network
+       Summary: Req 4 - Executive Dashboard | Explicit callout of services
+                with zero signals | /SignalReadiness enhancement
+
+2. PYTHON SYNC SCRIPT (sharepoint_sync.py)
+   - Updated existing Python sync script to correctly map project_items.json
+     fields to the IRE list's actual SharePoint column names.
+   - Corrected Priority mapping: "Medium" -> "Normal" (SharePoint only accepts
+     High / Normal / Low).
+   - Title format standardized: "[REQ4-004] Feature name"
+   - Defaults applied: Segment=Network, Projectphase=Planning, ManagerReview=False
+   - Script supports: --dry-run, --item <id>, --discover, --login, --logout
+
+3. SECURITY HARDENING
+   - Refresh tokens are now encrypted with Windows DPAPI -- only your Windows
+     login can decrypt them. Even local admins cannot read the token.
+   - Token files moved from %TEMP% to %APPDATA% (user-scoped, not world-readable).
+   - Delete operations now show item title and require explicit YES confirmation.
+   - No secrets or passwords in any script -- only Microsoft's own public
+     client IDs that work without app registration.
+
+4. MICROSOFT GRAPH API DOCUMENTATION
+   - Created Graph-API-SharePoint.md: full reference covering authentication
+     flow, token lifecycle, CRUD operations, field formats, people field
+     lookup IDs, and troubleshooting.
+   - Documented the UTF-8 byte encoding workaround required for strings
+     containing special characters in PowerShell's JSON serializer.
+   - Confirmed working Client IDs for Intel's tenant:
+       14d82eec-204b-4c2f-b7e8-296a70dab67e  (Microsoft Graph PowerShell SDK)
+       1b730954-1685-4b74-9bfd-dac224a7b894  (Azure CLI)
+
+5. TEAMS ONENOTE INTEGRATION (IRE IE Notebook)
+   - Identified the IE notebook in the IRE Teams General channel.
+   - Built IRE-OneNote.ps1 -- a complete script that:
+       * Calculates the current Intel work week (WW22 this week)
+       * Finds or auto-creates the current month section (e.g. "May 2026")
+       * Finds or auto-creates the current WW page (e.g. "WW22")
+       * Reads page content
+       * Appends HTML content to the current WW page
+   - Created Graph-API-OneNote.md with full endpoint and format reference.
+   - Submitted IT admin consent request for Notes.ReadWrite.All scope.
+     Awaiting approval email -- script is fully built and ready to run.
+
+6. KPI GRAPHQL PROJECT INTEGRATION
+   - All scripts copied to graphql-kpi-server project:
+       IRE-SharePoint.ps1      -- SharePoint list read/write
+       IRE-OneNote.ps1         -- Teams OneNote read/write (pending IT approval)
+       Graph-API-SharePoint.md -- SharePoint Graph API reference
+       Graph-API-OneNote.md    -- OneNote Graph API reference
+       sharepoint_sync.py      -- Python batch sync (updated column mapping)
+
+
+KEY TECHNICAL NOTES
+-------------------
+- Power Automate Direct API URLs cannot be called from external scripts in
+  Intel's tenant (corporate policy). Graph API is the correct approach.
+- SharePoint Online does not support Windows Integrated Auth from scripts.
+- PnP.PowerShell requires PS 7.4+; system runs PS 5.1. Use Graph API instead.
+- Teams notebooks (SharePoint-hosted) require Notes.ReadWrite.All scope.
+  Personal OneDrive notebooks only require Notes.ReadWrite.
+- OneNote app-only (service account) auth is blocked by Microsoft --
+  device code flow with a real user account is the only supported headless method.
+- SharePoint people fields use integer lookup IDs, not email addresses:
+    Monroe, John = ID 13  (in IRE Project Tracking list)
+
+
+PENDING / NEXT STEPS
+--------------------
+[ ] Awaiting IT admin approval for Notes.ReadWrite.All (OneNote access).
+    Run: .\IRE-OneNote.ps1 -Action GetToken  once approval email arrives.
+[ ] Manager check-in before creating remaining 10 futures items in
+    IRE Project Tracking list.
+[ ] Consider running: python sharepoint_sync.py --dry-run
+    to validate all futures items before bulk-creating in SharePoint.
+
+
+FILES CREATED/MODIFIED THIS WEEK
+---------------------------------
+C:\Users\JMONROE1\PowerAutomateProject\
+  IRE-SharePoint.ps1          New - SharePoint Graph API script
+  IRE-OneNote.ps1             New - OneNote Graph API script
+  Graph-API-SharePoint.md     New - SharePoint API documentation
+  Graph-API-OneNote.md        New - OneNote API documentation
+  README.md                   Updated - full setup and usage guide
+
+C:\scripts\ai_scripts\sn_mcp\graphql-kpi-server\
+  IRE-SharePoint.ps1          New - copy of above
+  IRE-OneNote.ps1             New - copy of above
+  Graph-API-SharePoint.md     New - copy of above
+  Graph-API-OneNote.md        New - copy of above
+  sharepoint_sync.py          Modified - corrected column mapping and Title format
