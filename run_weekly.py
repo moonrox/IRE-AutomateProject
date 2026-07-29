@@ -47,6 +47,37 @@ def _load_config() -> dict:
     return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
 
 
+def _collect_email_sources(cfg: dict, ww) -> list:
+    """Scan Outlook mail (Graph Mail.Read) if email_source is enabled.
+
+    Runs during collection so mail highlights appear even on --dry-run. Never
+    raises: missing creds or scope gaps become a source-coverage warning.
+    """
+    email_src = cfg.get("email_source", {})
+    if not email_src.get("enabled"):
+        return []
+
+    name = email_src.get("name", "Outlook Email")
+    tenant = os.getenv("DEV_TENANT_ID", "")
+    client = os.getenv("DEV_CLIENT_ID", "")
+    site = os.getenv("SITE_ID", "")
+    if not (tenant and client):
+        r = collectors.SourceResult(name=name, kind="email")
+        r.warning = "email scan skipped: DEV_TENANT_ID / DEV_CLIENT_ID missing from .env"
+        return [r]
+
+    graph = GraphClient(tenant, client, site)
+    print(f"[weekly] Scanning Outlook mail: folders={email_src.get('folders', ['Inbox'])}")
+    return [collectors.collect_email(
+        name,
+        graph,
+        email_src.get("folders", ["Inbox"]),
+        ww,
+        keywords=email_src.get("subject_keywords"),
+        max_items=int(email_src.get("max_items", 25)),
+    )]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Automated IRE weekly status report")
     ap.add_argument("--ww", help="Target work week, e.g. WW30 or WW30-2026")
@@ -64,6 +95,7 @@ def main() -> int:
     print(f"[weekly] Window: {ww.since_iso} .. {ww.end.isoformat()}")
 
     results = collectors.collect_all(cfg.get("sources", []), ww)
+    results.extend(_collect_email_sources(cfg, ww))
     total_items = sum(len(r.items) for r in results)
     warned = [r for r in results if r.warning]
     print(f"[weekly] Collected {total_items} change item(s) from {len(results)} source(s); "

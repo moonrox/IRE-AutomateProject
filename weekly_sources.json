@@ -48,9 +48,11 @@
     }
   ],
   "email_source": {
-    "enabled": false,
-    "note": "Phase 2: pull relevant Outlook threads via Graph Mail.Read.",
+    "enabled": true,
+    "name": "Outlook Email",
+    "note": "Scans Outlook mail via Graph Mail.Read for WW-window updates. Requires the cached refresh token to include Mail.Read (re-seed via IRE-SharePoint.ps1 -Action GetToken if a scope/403 warning appears).",
     "folders": ["Inbox", "Sent Items"],
-    "subject_keywords": ["IRE", "backlog", "weekly", "ADR"]
+    "subject_keywords": ["IRE", "backlog", "weekly", "ADR", "status", "update", "action"],
+    "max_items": 25
   }
 }

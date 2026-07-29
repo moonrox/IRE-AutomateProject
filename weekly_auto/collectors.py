@@ -189,6 +189,49 @@ def collect_fs_mtime(name: str, path: str, ww: WorkWeek) -> SourceResult:
     return res
 
 
+def collect_email(name: str, graph, folders: list[str], ww: WorkWeek,
+                  keywords: list[str] | None = None,
+                  max_items: int = 25) -> SourceResult:
+    """Scan Outlook mail folders (via Graph Mail.Read) for the WW window.
+
+    `graph` is a GraphClient exposing read_messages(). Produces ChangeItem
+    (category='email'). Optional `keywords` filter subject/preview
+    case-insensitively. Degrades gracefully: an auth/scope gap or API error
+    yields a warning rather than crashing the run.
+    """
+    from .graph_client import GraphAuthError  # local import: avoids hard dep
+
+    res = SourceResult(name=name, kind="email")
+    since = f"{ww.since_iso}T00:00:00Z"
+    until = f"{ww.end.isoformat()}T23:59:59Z"
+    kws = [k.lower() for k in (keywords or [])]
+    seen: set[str] = set()
+    try:
+        for folder in folders or ["Inbox"]:
+            for m in graph.read_messages(folder, since, until, top=max_items * 2):
+                subject = m.get("subject", "")
+                blob = f"{subject}\n{m.get('preview', '')}".lower()
+                if kws and not any(k in blob for k in kws):
+                    continue
+                key = f"{subject}|{m.get('from', '')}|{m.get('received', '')}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                who = m.get("from") or (m.get("to") or [""])[0]
+                label = folder.strip()
+                title = f"[{label}] {subject} - {who}" if who else f"[{label}] {subject}"
+                res.items.append(
+                    ChangeItem(name, "email", title, m.get("received", ""), m.get("web_link", ""))
+                )
+                if len(res.items) >= max_items:
+                    return res
+    except GraphAuthError as exc:
+        res.warning = f"email scan skipped (auth/scope): {str(exc)[:160]}"
+    except Exception as exc:  # noqa: BLE001 - never break the run
+        res.warning = f"email scan error: {str(exc)[:160]}"
+    return res
+
+
 def collect_all(sources: list[dict], ww: WorkWeek) -> list[SourceResult]:
     """Run every configured source collector and return a flat result list."""
     results: list[SourceResult] = []

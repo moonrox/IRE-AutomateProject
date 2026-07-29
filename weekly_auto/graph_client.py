@@ -3,11 +3,17 @@
 Reuses the SAME proven, already-consented delegated credential that the IRE
 project-tracking flow uses: a DPAPI-encrypted refresh token cached by the
 PowerShell Graph scripts at %APPDATA%\\IRE-graph_refresh.bin, refreshed for the
-Sites.ReadWrite.All + Mail.Send scopes.
+Sites.ReadWrite.All + Mail.Send + Mail.Read scopes.
 
 This deliberately avoids the OneNote path (Notes.ReadWrite.All) which is blocked
-on IT admin consent. Both scopes used here are already consented for the app, so
-the scheduled job runs unattended with no device-code prompt.
+on IT admin consent, and the Calendars.Read path which is frequently un-consented
+for this app (the exact gap a customer hit: mail worked, calendar did not). All
+scopes used here are delegated and already consented for the app, so the
+scheduled job runs unattended with no device-code prompt.
+
+NOTE: Mail.Read was added after the original seed. If reading mail returns an
+auth/scope error, re-seed the cached refresh token once (interactive device-code)
+so consent includes Mail.Read -- see IRE-SharePoint.ps1 -Action GetToken.
 """
 from __future__ import annotations
 
@@ -23,8 +29,21 @@ _TOKEN_URL = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
 _GRAPH = "https://graph.microsoft.com/v1.0"
 _SCOPES = (
     "https://graph.microsoft.com/Sites.ReadWrite.All "
-    "https://graph.microsoft.com/Mail.Send offline_access"
+    "https://graph.microsoft.com/Mail.Send "
+    "https://graph.microsoft.com/Mail.Read offline_access"
 )
+
+# Friendly folder name -> Graph well-known mailFolder id.
+_WELL_KNOWN_FOLDERS = {
+    "inbox": "inbox",
+    "sent": "sentitems",
+    "sent items": "sentitems",
+    "sentitems": "sentitems",
+    "drafts": "drafts",
+    "archive": "archive",
+    "deleted": "deleteditems",
+    "deleted items": "deleteditems",
+}
 _REFRESH_CACHE = "IRE-graph_refresh.bin"
 _DOCX_CT = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -141,3 +160,63 @@ class GraphClient:
         )
         if resp.status_code not in (200, 202):
             raise RuntimeError(f"sendMail failed HTTP {resp.status_code}: {resp.text[:300]}")
+
+    def read_messages(
+        self,
+        folder: str,
+        since_iso: str,
+        until_iso: str,
+        top: int = 50,
+    ) -> list[dict]:
+        """Return messages in `folder` received within [since_iso, until_iso].
+
+        `folder` is a friendly name (Inbox, Sent Items, ...) mapped to a Graph
+        well-known folder id. `since_iso`/`until_iso` are full UTC datetimes
+        (e.g. '2026-07-19T00:00:00Z'). Returns a list of dicts with keys:
+        subject, from, to, received, web_link, preview. Read-only (Mail.Read).
+        """
+        well_known = _WELL_KNOWN_FOLDERS.get(folder.strip().lower())
+        base = (
+            f"{_GRAPH}/me/mailFolders/{well_known}/messages"
+            if well_known
+            else f"{_GRAPH}/me/messages"
+        )
+        params = {
+            "$select": "subject,from,toRecipients,receivedDateTime,webLink,bodyPreview",
+            "$filter": (
+                f"receivedDateTime ge {since_iso} and receivedDateTime le {until_iso}"
+            ),
+            "$orderby": "receivedDateTime desc",
+            "$top": str(max(1, min(top, 100))),
+        }
+        resp = requests.get(
+            base,
+            headers={**self._headers(), "Prefer": 'outlook.timezone="UTC"'},
+            params=params,
+            timeout=60,
+        )
+        if resp.status_code == 403:
+            raise GraphAuthError(
+                "Mail.Read not consented for this app/token. Re-seed the cached "
+                "credential (IRE-SharePoint.ps1 -Action GetToken) so consent "
+                "includes Mail.Read."
+            )
+        if resp.status_code != 200:
+            raise RuntimeError(f"read_messages failed HTTP {resp.status_code}: {resp.text[:300]}")
+
+        out: list[dict] = []
+        for m in resp.json().get("value", []):
+            frm = (m.get("from") or {}).get("emailAddress", {})
+            to_list = [
+                (r.get("emailAddress") or {}).get("address", "")
+                for r in (m.get("toRecipients") or [])
+            ]
+            out.append({
+                "subject": (m.get("subject") or "(no subject)").strip(),
+                "from": frm.get("address", "") or frm.get("name", ""),
+                "to": [a for a in to_list if a],
+                "received": (m.get("receivedDateTime") or "")[:10],
+                "web_link": m.get("webLink", ""),
+                "preview": (m.get("bodyPreview") or "").strip(),
+            })
+        return out
