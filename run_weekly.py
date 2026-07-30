@@ -78,6 +78,28 @@ def _collect_email_sources(cfg: dict, ww) -> list:
     )]
 
 
+def _collect_calendar_sources(cfg: dict, ww) -> list:
+    """Scan the local Outlook calendar (COM/pywin32) if calendar_source enabled.
+
+    Non-Graph path: reads meeting contents from the running Outlook client, so it
+    needs no Graph Calendars.Read permission. Never raises: pywin32/Outlook/COM
+    problems become a source-coverage warning.
+    """
+    cal_src = cfg.get("calendar_source", {})
+    if not cal_src.get("enabled"):
+        return []
+    name = cal_src.get("name", "Outlook Calendar")
+    print(f"[weekly] Scanning Outlook calendar (COM): lookahead={cal_src.get('lookahead_days', 7)}d")
+    return [collectors.collect_calendar(
+        name,
+        ww,
+        lookahead_days=int(cal_src.get("lookahead_days", 7)),
+        meetings_only=bool(cal_src.get("meetings_only", True)),
+        keywords=cal_src.get("subject_keywords"),
+        max_items=int(cal_src.get("max_items", 30)),
+    )]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Automated IRE weekly status report")
     ap.add_argument("--ww", help="Target work week, e.g. WW30 or WW30-2026")
@@ -96,6 +118,7 @@ def main() -> int:
 
     results = collectors.collect_all(cfg.get("sources", []), ww)
     results.extend(_collect_email_sources(cfg, ww))
+    results.extend(_collect_calendar_sources(cfg, ww))
     total_items = sum(len(r.items) for r in results)
     warned = [r for r in results if r.warning]
     print(f"[weekly] Collected {total_items} change item(s) from {len(results)} source(s); "

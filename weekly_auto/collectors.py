@@ -232,6 +232,104 @@ def collect_email(name: str, graph, folders: list[str], ww: WorkWeek,
     return res
 
 
+def collect_calendar(name: str, ww: WorkWeek, lookahead_days: int = 7,
+                     meetings_only: bool = True, keywords: list[str] | None = None,
+                     max_items: int = 30) -> SourceResult:
+    """Read meeting contents from the LOCAL Outlook client via COM (pywin32).
+
+    This is the non-Graph path: it talks to the user's running Outlook MAPI
+    profile / cached mailbox, so it needs NO Graph Calendars.Read permission and
+    no Azure app registration. Covers the WW window plus `lookahead_days` of
+    upcoming meetings. Produces ChangeItem(category='meeting').
+
+    Degrades gracefully: missing pywin32, no Outlook, or a COM/Object-Model-Guard
+    error yields a warning rather than crashing the run.
+    """
+    from datetime import datetime, timedelta
+
+    res = SourceResult(name=name, kind="calendar")
+    kws = [k.lower() for k in (keywords or [])]
+
+    try:
+        import pythoncom  # type: ignore
+        import win32com.client  # type: ignore
+    except ImportError:
+        res.warning = "calendar scan skipped: pywin32 not installed (pip install pywin32)"
+        return res
+
+    try:
+        pythoncom.CoInitialize()
+    except Exception:  # noqa: BLE001 - already initialized is fine
+        pass
+
+    try:
+        try:
+            outlook = win32com.client.GetActiveObject("Outlook.Application")
+        except Exception:  # noqa: BLE001 - not running; launch it
+            outlook = win32com.client.Dispatch("Outlook.Application")
+        mapi = outlook.GetNamespace("MAPI")
+        cal = mapi.GetDefaultFolder(9)  # olFolderCalendar
+
+        items = cal.Items
+        # Must enable recurrence expansion BEFORE sorting, or recurring meetings
+        # only surface on their series master date.
+        items.IncludeRecurrences = True
+        items.Sort("[Start]")
+
+        start_dt = datetime.combine(ww.start, datetime.min.time())
+        end_dt = datetime.combine(ww.end + timedelta(days=lookahead_days), datetime.max.time())
+        fmt = "%m/%d/%Y %I:%M %p"
+        flt = f"[Start] >= '{start_dt.strftime(fmt)}' AND [Start] <= '{end_dt.strftime(fmt)}'"
+        if meetings_only:
+            flt += " AND [MeetingStatus] > 0"
+        restricted = items.Restrict(flt)
+
+        seen: set[str] = set()
+        for appt in restricted:
+            try:
+                subject = (appt.Subject or "(no subject)").strip()
+            except Exception:  # noqa: BLE001
+                subject = "(no subject)"
+            try:
+                organizer = (appt.Organizer or "").strip()
+            except Exception:  # noqa: BLE001
+                organizer = ""
+            try:
+                location = (appt.Location or "").strip()
+            except Exception:  # noqa: BLE001
+                location = ""
+            try:
+                body = (appt.Body or "").strip()
+            except Exception:  # noqa: BLE001 - Object Model Guard may block
+                body = ""
+            try:
+                start_str = str(appt.Start)[:10]
+            except Exception:  # noqa: BLE001
+                start_str = ""
+
+            if kws and not any(k in f"{subject}\n{body}".lower() for k in kws):
+                continue
+            key = f"{subject}|{start_str}"
+            if key in seen:
+                continue
+            seen.add(key)
+
+            title = f"{subject} - {organizer}" if organizer else subject
+            if location:
+                title += f" @ {location}"
+            res.items.append(ChangeItem(name, "meeting", title, start_str, ""))
+            if len(res.items) >= max_items:
+                break
+    except Exception as exc:  # noqa: BLE001 - never break the run
+        res.warning = f"calendar scan error: {str(exc)[:160]}"
+    finally:
+        try:
+            pythoncom.CoUninitialize()
+        except Exception:  # noqa: BLE001
+            pass
+    return res
+
+
 def collect_all(sources: list[dict], ww: WorkWeek) -> list[SourceResult]:
     """Run every configured source collector and return a flat result list."""
     results: list[SourceResult] = []

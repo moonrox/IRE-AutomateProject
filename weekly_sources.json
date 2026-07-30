@@ -54,5 +54,14 @@
     "folders": ["Inbox", "Sent Items"],
     "subject_keywords": ["IRE", "backlog", "weekly", "ADR", "status", "update", "action"],
     "max_items": 25
+  },
+  "calendar_source": {
+    "enabled": true,
+    "name": "Outlook Calendar",
+    "note": "Reads meeting contents from the LOCAL Outlook client via COM (pywin32) - NO Graph Calendars.Read permission needed. Requires desktop Outlook + pywin32. Scans the WW window plus lookahead_days of upcoming meetings.",
+    "lookahead_days": 7,
+    "meetings_only": true,
+    "subject_keywords": [],
+    "max_items": 30
   }
 }

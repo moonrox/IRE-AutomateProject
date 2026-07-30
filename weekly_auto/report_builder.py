@@ -50,11 +50,12 @@ def read_notes(notes_path: Path) -> dict[str, list[str]]:
 
 # ── aggregation ──────────────────────────────────────────────────────────────
 
-def _group(results: list[SourceResult]) -> tuple[dict, list, list, list]:
-    """Return (commits_by_source, adr_items, email_items, warnings)."""
+def _group(results: list[SourceResult]) -> tuple[dict, list, list, list, list]:
+    """Return (commits_by_source, adr_items, email_items, meeting_items, warnings)."""
     commits: dict[str, list] = defaultdict(list)
     adrs: list = []
     emails: list = []
+    meetings: list = []
     warnings: list = []
     for r in results:
         if r.warning:
@@ -66,16 +67,19 @@ def _group(results: list[SourceResult]) -> tuple[dict, list, list, list]:
                 adrs.append(it)
             elif it.category == "email":
                 emails.append(it)
+            elif it.category == "meeting":
+                meetings.append(it)
             elif it.category == "file":
                 commits[r.name].append(it)
-    return commits, adrs, emails, warnings
+    return commits, adrs, emails, meetings, warnings
 
 
 _MAX_EMAILS = 15
+_MAX_MEETINGS = 20
 
 
 def _progress_lines(results: list[SourceResult]) -> list[str]:
-    commits, adrs, emails, _ = _group(results)
+    commits, adrs, emails, meetings, _ = _group(results)
     lines: list[str] = []
     if adrs:
         lines.append("New Architecture Decision Records (ADRs) added this week:")
@@ -88,6 +92,14 @@ def _progress_lines(results: list[SourceResult]) -> list[str]:
         extra = len(items) - len(shown)
         header = f"{source} - {len(items)} change(s) this week:"
         lines.append(header)
+        for it in shown:
+            lines.append(f"    - {it.title} ({it.date})")
+        if extra > 0:
+            lines.append(f"    - ...and {extra} more")
+    if meetings:
+        shown = sorted(meetings, key=lambda x: x.date)[:_MAX_MEETINGS]
+        extra = len(meetings) - len(shown)
+        lines.append(f"Meetings this week ({len(meetings)}):")
         for it in shown:
             lines.append(f"    - {it.title} ({it.date})")
         if extra > 0:
@@ -109,7 +121,7 @@ def _progress_lines(results: list[SourceResult]) -> list[str]:
 
 def build_markdown(ww: WorkWeek, author: str, results: list[SourceResult],
                    notes: dict[str, list[str]]) -> str:
-    _, _, _, warnings = _group(results)
+    _, _, _, _, warnings = _group(results)
     out: list[str] = []
     out.append(f"# {ww.human}")
     out.append(f"{author} | Infrastructure Reliability Engineering")
@@ -189,7 +201,7 @@ def build_docx(ww: WorkWeek, author: str, author_title: str,
     for n in (notes.get("next_week") or ["TBD."]):
         doc.add_paragraph(n, style="List Bullet")
 
-    _, _, _, warnings = _group(results)
+    _, _, _, _, warnings = _group(results)
     if warnings:
         doc.add_paragraph()
         section("Source Coverage Notes:")
