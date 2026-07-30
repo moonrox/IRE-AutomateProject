@@ -30,7 +30,10 @@ _GRAPH = "https://graph.microsoft.com/v1.0"
 _SCOPES = (
     "https://graph.microsoft.com/Sites.ReadWrite.All "
     "https://graph.microsoft.com/Mail.Send "
-    "https://graph.microsoft.com/Mail.Read offline_access"
+    "https://graph.microsoft.com/Mail.Read "
+    "https://graph.microsoft.com/Calendars.Read "
+    "https://graph.microsoft.com/OnlineMeetings.Read "
+    "https://graph.microsoft.com/OnlineMeetingTranscript.Read.All offline_access"
 )
 
 # Friendly folder name -> Graph well-known mailFolder id.
@@ -246,4 +249,104 @@ class GraphClient:
                 "web_link": m.get("webLink", ""),
                 "preview": (m.get("bodyPreview") or "").strip(),
             })
+        return out
+
+    # ── online-meeting transcripts (delegated: organizer-only) ───────────────
+    def organized_online_meetings(self, since_iso: str, until_iso: str,
+                                  top: int = 100) -> list[dict]:
+        """Return online meetings the signed-in user ORGANIZED in the window.
+
+        Uses /me/calendarView (NOT /me/events $filter, which 400s on start).
+        `since_iso`/`until_iso` are full UTC datetimes
+        (e.g. '2026-07-19T00:00:00Z'). Returns dicts with keys:
+        subject, date (YYYY-MM-DD), join_url. Delegated transcript access is
+        organizer-only, so non-organized meetings are dropped here.
+        """
+        params = {
+            "startDateTime": since_iso,
+            "endDateTime": until_iso,
+            "$select": "subject,isOrganizer,isOnlineMeeting,onlineMeeting,start",
+            "$orderby": "start/dateTime",
+            "$top": str(max(1, min(top, 200))),
+        }
+        resp = requests.get(
+            f"{_GRAPH}/me/calendarView",
+            headers={**self._headers(), "Prefer": 'outlook.timezone="UTC"'},
+            params=params,
+            timeout=60,
+        )
+        if resp.status_code == 403:
+            raise GraphAuthError(
+                "Calendars.Read not consented for this app/token. Re-seed the "
+                "cached credential (IRE-SharePoint.ps1 -Action GetToken) so "
+                "consent includes Calendars.Read + OnlineMeetingTranscript.Read.All."
+            )
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"calendarView failed HTTP {resp.status_code}: {resp.text[:300]}")
+        out: list[dict] = []
+        seen: set[str] = set()
+        for ev in resp.json().get("value", []):
+            if not (ev.get("isOnlineMeeting") and ev.get("isOrganizer")):
+                continue
+            join_url = ((ev.get("onlineMeeting") or {}).get("joinUrl") or "").strip()
+            if not join_url or join_url in seen:
+                continue
+            seen.add(join_url)
+            out.append({
+                "subject": (ev.get("subject") or "(no subject)").strip(),
+                "date": ((ev.get("start") or {}).get("dateTime") or "")[:10],
+                "join_url": join_url,
+            })
+        return out
+
+    def resolve_online_meeting_id(self, join_url: str) -> str:
+        """Resolve a Teams joinUrl to its onlineMeeting id (empty if not found)."""
+        params = {"$filter": f"JoinWebUrl eq '{join_url}'"}
+        resp = requests.get(
+            f"{_GRAPH}/me/onlineMeetings",
+            headers=self._headers(), params=params, timeout=60,
+        )
+        if resp.status_code != 200:
+            return ""
+        vals = resp.json().get("value", [])
+        return vals[0].get("id", "") if vals else ""
+
+    def list_transcripts(self, meeting_id: str) -> list[str]:
+        """Return transcript ids for an online meeting (empty if none/not transcribed)."""
+        resp = requests.get(
+            f"{_GRAPH}/me/onlineMeetings/{meeting_id}/transcripts",
+            headers=self._headers(), timeout=60,
+        )
+        if resp.status_code != 200:
+            return []
+        return [t.get("id", "") for t in resp.json().get("value", []) if t.get("id")]
+
+    def get_transcript_vtt(self, meeting_id: str, transcript_id: str) -> str:
+        """Download a transcript's WebVTT content as text (empty on failure)."""
+        resp = requests.get(
+            f"{_GRAPH}/me/onlineMeetings/{meeting_id}/transcripts/{transcript_id}/content",
+            headers=self._headers(), params={"$format": "text/vtt"}, timeout=120,
+        )
+        return resp.text if resp.status_code == 200 else ""
+
+    def fetch_transcripts(self, since_iso: str, until_iso: str,
+                          top: int = 100) -> list[dict]:
+        """High-level: organized+transcribed meetings in the window with their VTT.
+
+        Returns a list of dicts: {subject, date, join_url, meeting_id,
+        transcripts: [vtt_text, ...]}. Meetings with no transcript are still
+        returned (empty transcripts list) so the caller can report coverage.
+        """
+        meetings = self.organized_online_meetings(since_iso, until_iso, top=top)
+        out: list[dict] = []
+        for mtg in meetings:
+            mid = self.resolve_online_meeting_id(mtg["join_url"])
+            vtts: list[str] = []
+            if mid:
+                for tid in self.list_transcripts(mid):
+                    vtt = self.get_transcript_vtt(mid, tid)
+                    if vtt:
+                        vtts.append(vtt)
+            out.append({**mtg, "meeting_id": mid, "transcripts": vtts})
         return out

@@ -340,6 +340,107 @@ def collect_calendar(name: str, ww: WorkWeek, lookahead_days: int = 7,
     return res
 
 
+def _parse_vtt(vtt: str) -> dict:
+    """Parse WebVTT into a deterministic summary (no LLM).
+
+    Returns {speakers, cues, duration, first_line}. Teams VTT cues look like:
+        00:00:03.120 --> 00:00:07.450
+        <v John Monroe>hello everyone</v>
+    """
+    speakers: list[str] = []
+    lines: list[str] = []
+    last_ts = ""
+    first_line = ""
+    spk_re = re.compile(r"<v\s+([^>]+)>(.*?)</v>", re.IGNORECASE | re.DOTALL)
+    ts_re = re.compile(r"(\d{2}:\d{2}:\d{2})\.\d{3}\s*-->\s*(\d{2}:\d{2}:\d{2})")
+    for raw in vtt.splitlines():
+        line = raw.strip()
+        mt = ts_re.search(line)
+        if mt:
+            last_ts = mt.group(2)
+            continue
+        for who, text in spk_re.findall(line):
+            who = who.strip()
+            text = re.sub(r"<[^>]+>", "", text).strip()
+            if who and who not in speakers:
+                speakers.append(who)
+            if text:
+                lines.append(text)
+                if not first_line:
+                    first_line = text
+    return {
+        "speakers": speakers,
+        "cues": len(lines),
+        "duration": last_ts,
+        "first_line": first_line[:160],
+    }
+
+
+def _vtt_summary(vtt: str) -> str:
+    """One-line deterministic summary of a transcript for the weekly report."""
+    p = _parse_vtt(vtt)
+    if not p["cues"]:
+        return "transcript captured (no spoken cues parsed)"
+    parts = [f"{len(p['speakers'])} speaker(s)", f"{p['cues']} cues"]
+    if p["duration"]:
+        parts.append(f"~{p['duration']}")
+    tail = f" - opening: \u201c{p['first_line']}\u201d" if p["first_line"] else ""
+    return ", ".join(parts) + tail
+
+
+def _safe_name(s: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", s).strip("_")[:80] or "meeting"
+
+
+def collect_transcripts(name: str, graph, ww: WorkWeek, out_dir: str | Path,
+                        keywords: list[str] | None = None,
+                        exclude: list[str] | None = None,
+                        max_items: int = 20) -> SourceResult:
+    """Capture Teams meeting transcripts (VTT) for the WW window via Graph.
+
+    Delegated access is ORGANIZER-ONLY and requires the meeting to have been
+    transcribed. Saves each `.vtt` under `out_dir` and produces a
+    ChangeItem(category='transcript') whose title carries a short deterministic
+    summary and whose ref is the saved file path. Degrades gracefully: an
+    auth/scope gap or API error yields a warning rather than crashing the run.
+    """
+    from .graph_client import GraphAuthError  # local import: avoids hard dep
+
+    res = SourceResult(name=name, kind="transcript")
+    since = f"{ww.since_iso}T00:00:00Z"
+    until = f"{ww.end.isoformat()}T23:59:59Z"
+    kws = [k.lower() for k in (keywords or [])]
+    excl = [e.lower() for e in (exclude or [])]
+    out_path = Path(out_dir)
+    try:
+        out_path.mkdir(parents=True, exist_ok=True)
+        for mtg in graph.fetch_transcripts(since, until, top=max_items * 3):
+            subject = mtg.get("subject", "(no subject)")
+            blob = subject.lower()
+            if kws and not any(k in blob for k in kws):
+                continue
+            if excl and any(e in blob for e in excl):
+                continue
+            vtts = mtg.get("transcripts") or []
+            if not vtts:
+                continue  # organized but not transcribed -> skip silently
+            vtt = vtts[0]
+            fname = f"{mtg.get('date', '')}-{_safe_name(subject)}.vtt"
+            (out_path / fname).write_text(vtt, encoding="utf-8")
+            title = f"{subject} - {_vtt_summary(vtt)}"
+            res.items.append(
+                ChangeItem(name, "transcript", title, mtg.get("date", ""),
+                           str(out_path / fname))
+            )
+            if len(res.items) >= max_items:
+                break
+    except GraphAuthError as exc:
+        res.warning = f"transcript scan skipped (auth/scope): {str(exc)[:160]}"
+    except Exception as exc:  # noqa: BLE001 - never break the run
+        res.warning = f"transcript scan error: {str(exc)[:160]}"
+    return res
+
+
 def collect_all(sources: list[dict], ww: WorkWeek) -> list[SourceResult]:
     """Run every configured source collector and return a flat result list."""
     results: list[SourceResult] = []

@@ -102,6 +102,35 @@ def _collect_calendar_sources(cfg: dict, ww) -> list:
     )]
 
 
+def _collect_transcript_sources(cfg: dict, ww) -> list:
+    """Capture Teams meeting transcripts (Graph, organizer-only) if enabled.
+
+    Requires OnlineMeetingTranscript.Read.All consent and meetings that were
+    actually transcribed. Never raises: scope gaps/API errors become a
+    source-coverage warning.
+    """
+    tr_src = cfg.get("transcript_source", {})
+    if not tr_src.get("enabled"):
+        return []
+    name = tr_src.get("name", "Meeting Transcripts")
+    tenant = os.getenv("DEV_TENANT_ID", "")
+    client = os.getenv("DEV_CLIENT_ID", "")
+    site = os.getenv("SITE_ID", "")
+    if not (tenant and client):
+        r = collectors.SourceResult(name=name, kind="transcript")
+        r.warning = "transcript scan skipped: DEV_TENANT_ID / DEV_CLIENT_ID missing from .env"
+        return [r]
+    graph = GraphClient(tenant, client, site)
+    out_dir = THIS_DIR / tr_src.get("out_dir", "transcripts")
+    print(f"[weekly] Capturing Teams transcripts (Graph, organizer-only) -> {out_dir}")
+    return [collectors.collect_transcripts(
+        name, graph, ww, out_dir,
+        keywords=tr_src.get("subject_keywords"),
+        exclude=tr_src.get("exclude_keywords"),
+        max_items=int(tr_src.get("max_items", 20)),
+    )]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Automated IRE weekly status report")
     ap.add_argument("--ww", help="Target work week, e.g. WW30 or WW30-2026")
@@ -113,7 +142,6 @@ def main() -> int:
     cfg = _load_config()
     ww = work_week_from_label(args.ww) if args.ww else work_week()
     author = cfg.get("author", "John Monroe")
-    author_title = cfg.get("author_title", "Infrastructure Reliability Engineering")
 
     print(f"[weekly] Building {ww.human}")
     print(f"[weekly] Window: {ww.since_iso} .. {ww.end.isoformat()}")
@@ -121,6 +149,7 @@ def main() -> int:
     results = collectors.collect_all(cfg.get("sources", []), ww)
     results.extend(_collect_email_sources(cfg, ww))
     results.extend(_collect_calendar_sources(cfg, ww))
+    results.extend(_collect_transcript_sources(cfg, ww))
     total_items = sum(len(r.items) for r in results)
     warned = [r for r in results if r.warning]
     print(f"[weekly] Collected {total_items} change item(s) from {len(results)} source(s); "
@@ -149,7 +178,6 @@ def main() -> int:
 
     graph = GraphClient(tenant, client, site)
 
-    upload_ok = False
     sharepoint_url = ""
     if not args.no_upload:
         try:
@@ -157,7 +185,6 @@ def main() -> int:
             url = graph.upload_to_library(folder, report_name, report_path)
             print(f"[weekly] Uploaded to SharePoint: {url}")
             sharepoint_url = url
-            upload_ok = True
         except GraphAuthError as exc:
             print(f"[weekly] AUTH ERROR (re-auth needed): {exc}")
         except Exception as exc:  # noqa: BLE001

@@ -50,12 +50,14 @@ def read_notes(notes_path: Path) -> dict[str, list[str]]:
 
 # ── aggregation ──────────────────────────────────────────────────────────────
 
-def _group(results: list[SourceResult]) -> tuple[dict, list, list, list, list]:
-    """Return (commits_by_source, adr_items, email_items, meeting_items, warnings)."""
+def _group(results: list[SourceResult]) -> tuple[dict, list, list, list, list, list]:
+    """Return (commits_by_source, adr_items, email_items, meeting_items,
+    transcript_items, warnings)."""
     commits: dict[str, list] = defaultdict(list)
     adrs: list = []
     emails: list = []
     meetings: list = []
+    transcripts: list = []
     warnings: list = []
     for r in results:
         if r.warning:
@@ -69,14 +71,17 @@ def _group(results: list[SourceResult]) -> tuple[dict, list, list, list, list]:
                 emails.append(it)
             elif it.category == "meeting":
                 meetings.append(it)
+            elif it.category == "transcript":
+                transcripts.append(it)
             elif it.category == "file":
                 commits[r.name].append(it)
-    return commits, adrs, emails, meetings, warnings
+    return commits, adrs, emails, meetings, transcripts, warnings
 
 
 _MAX_COMMITS_PER_SOURCE = 3
 _MAX_EMAILS = 3
 _MAX_MEETINGS = 3
+_MAX_TRANSCRIPTS = 3
 
 
 def _summarize_commits(items: list) -> str:
@@ -109,7 +114,7 @@ def _summarize_commits(items: list) -> str:
 
 def _progress_lines(results: list[SourceResult]) -> list[str]:
     """Organized progress: one summary bullet per source, top 3 items as sub-bullets."""
-    commits, adrs, emails, meetings, _ = _group(results)
+    commits, adrs, emails, meetings, transcripts, _ = _group(results)
     lines: list[str] = []
 
     if adrs:
@@ -146,6 +151,15 @@ def _progress_lines(results: list[SourceResult]) -> list[str]:
         if extra > 0:
             lines.append(f"    - ...and {extra} more")
 
+    if transcripts:
+        shown = sorted(transcripts, key=lambda x: x.date)[:_MAX_TRANSCRIPTS]
+        extra = len(transcripts) - len(shown)
+        lines.append(f"Meeting transcripts captured ({len(transcripts)} total):")
+        for it in shown:
+            lines.append(f"    - {it.title} ({it.date})")
+        if extra > 0:
+            lines.append(f"    - ...and {extra} more")
+
     if emails:
         shown = emails[:_MAX_EMAILS]
         extra = len(emails) - len(shown)
@@ -164,7 +178,7 @@ def _progress_lines(results: list[SourceResult]) -> list[str]:
 
 def build_markdown(ww: WorkWeek, author: str, results: list[SourceResult],
                    notes: dict[str, list[str]]) -> str:
-    _, _, _, _, warnings = _group(results)
+    _, _, _, _, _, warnings = _group(results)
     out: list[str] = []
     out.append(f"# {ww.human}")
     out.append(f"{author} | Infrastructure Reliability Engineering")
@@ -232,9 +246,9 @@ def build_docx(ww: WorkWeek, author: str, author_title: str,
     section("Progress:")
     for line in _progress_lines(results):
         if line.startswith("    "):
-            p = doc.add_paragraph(line.strip(), style="List Bullet 2")
+            doc.add_paragraph(line.strip(), style="List Bullet 2")
         else:
-            p = doc.add_paragraph(line.strip(), style="List Bullet")
+            doc.add_paragraph(line.strip(), style="List Bullet")
     doc.add_paragraph()
 
     section("Blockers/Risks:")
@@ -246,7 +260,7 @@ def build_docx(ww: WorkWeek, author: str, author_title: str,
     for n in (notes.get("next_week") or ["TBD."]):
         doc.add_paragraph(n, style="List Bullet")
 
-    _, _, _, _, warnings = _group(results)
+    _, _, _, _, _, warnings = _group(results)
     if warnings:
         doc.add_paragraph()
         section("Source Coverage Notes:")
@@ -280,19 +294,23 @@ def markdown_to_html(md: str) -> str:
     for line in md.splitlines():
         if line.startswith("# "):
             if in_list:
-                html.append("</ul>"); in_list = False
+                html.append("</ul>")
+                in_list = False
             html.append(f"<h2>{_esc(line[2:])}</h2>")
         elif line.startswith("## "):
             if in_list:
-                html.append("</ul>"); in_list = False
+                html.append("</ul>")
+                in_list = False
             html.append(f"<h3>{_esc(line[3:])}</h3>")
         elif line.strip().startswith("-"):
             if not in_list:
-                html.append("<ul>"); in_list = True
+                html.append("<ul>")
+                in_list = True
             html.append(f"<li>{_esc(line.strip()[1:].strip())}</li>")
         elif line.strip():
             if in_list:
-                html.append("</ul>"); in_list = False
+                html.append("</ul>")
+                in_list = False
             html.append(f"<p>{_esc(line)}</p>")
     if in_list:
         html.append("</ul>")

@@ -65,5 +65,14 @@
   "subject_keywords": [],
   "exclude_keywords": ["karate", "silicon forest"],
   "max_items": 30
+  },
+  "transcript_source": {
+  "enabled": false,
+  "name": "Meeting Transcripts",
+  "note": "Captures Teams meeting transcripts (VTT) via Graph. DELEGATED = ORGANIZER-ONLY and requires the meeting to have been transcribed. Needs OnlineMeetingTranscript.Read.All + Calendars.Read consent on the cached token (re-seed via IRE-SharePoint.ps1 -Action GetToken). Saved under out_dir; a short deterministic summary appears in the weekly. Enable once the token consents the transcript scope.",
+  "out_dir": "transcripts",
+  "subject_keywords": [],
+  "exclude_keywords": [],
+  "max_items": 20
   }
 }
