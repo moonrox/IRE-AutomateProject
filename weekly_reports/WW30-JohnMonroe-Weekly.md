@@ -1,14 +1,14 @@
 # WW30 - Reporting window Thu Jul 16 - Wed Jul 22, 2026
 John Monroe | Infrastructure Reliability Engineering
-_Generated 2026-07-30 07:23 by weekly_auto_
+_Generated 2026-07-30 07:32 by weekly_auto_
 
 ## Progress
 
-- IRE Dashboard - 25 change(s) this week (across adr, rca):
+- IRE Dashboard - 24 change(s) this week (across adr, rca):
   - Add ADR-038: incident-centric tool navigation (RCA/ProgramLevelRCA/NearMiss/Forensics) (2026-07-17)
   - Split Program-Level RCA metrics into own page; add Forensics cross-links (2026-07-17)
   - Add direct ticket-number jump link on /view/forensics (2026-07-17)
-  - ...and 22 more
+  - ...and 21 more
 - IRE-python-template - 6 change(s) this week (feat, fix, add, docs):
   - feat: add mandatory Plan-Before-Code gate to skills framework (2026-07-22)
   - fix: scaffold robustness + skill loader/knowledge-identity fixes; add ire-scaffold.ps1 (2026-07-22)
@@ -24,11 +24,11 @@ _Generated 2026-07-30 07:23 by weekly_auto_
   - assess_skills.py (2026-07-20)
   - context_window.py (2026-07-20)
   - ...and 83 more
-- Key meetings this week (30 total):
+- Key meetings this week (16 total):
   - AI Modernization Journey for IAPM - IT Tech Talk - MeetUP @ https://teams.microsoft.com/meet/239132354815321?p=0JDrmVzDiwXHiOZnpS (2026-07-16)
   - Amy 1 day vacation - Webster, Amy C @ offline (2026-07-17)
   - Refresh ISMP/ServiceNow Preview, Test - McKain, Mark @ Save your work!!! (2026-07-18)
-  - ...and 27 more
+  - ...and 13 more
 - Notable email activity this week (15 total):
   - [Sent Items] RE: Security for our data - john.monroe@intel.com (2026-07-22)
   - [Sent Items] RE: Agentic Diagramming - john.monroe@intel.com (2026-07-22)

@@ -59,8 +59,8 @@
   "calendar_source": {
   "enabled": true,
   "name": "Outlook Calendar",
-  "note": "Reads meeting contents from the LOCAL Outlook client via COM (pywin32) - NO Graph Calendars.Read permission needed. Requires desktop Outlook + pywin32. Scans the WW window plus lookahead_days of upcoming meetings.",
-  "lookahead_days": 7,
+  "note": "Reads meeting contents from the LOCAL Outlook client via COM (pywin32) - NO Graph Calendars.Read permission needed. Requires desktop Outlook + pywin32. lookahead_days=0 keeps meetings clamped to the Thu-Wed reporting window so consecutive weeklies do not overlap; raise it only if you want an upcoming-meetings preview (which will overlap the next report).",
+  "lookahead_days": 0,
   "meetings_only": true,
   "subject_keywords": [],
   "exclude_keywords": ["karate", "silicon forest"],
