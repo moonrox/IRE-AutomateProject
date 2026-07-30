@@ -48,6 +48,19 @@ _REFRESH_CACHE = "IRE-graph_refresh.bin"
 _DOCX_CT = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
+def _content_type(name: str) -> str:
+    """Best-effort content type from a file name's extension."""
+    ext = Path(name).suffix.lower()
+    return {
+        ".md": "text/markdown",
+        ".markdown": "text/markdown",
+        ".docx": _DOCX_CT,
+        ".txt": "text/plain",
+        ".pdf": "application/pdf",
+        ".html": "text/html",
+    }.get(ext, "application/octet-stream")
+
+
 class _DATA_BLOB(ctypes.Structure):
     _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_char))]
 
@@ -122,7 +135,8 @@ class GraphClient:
         data = Path(file_path).read_bytes()
         uri = f"{_GRAPH}/sites/{self._site}/drive/root:/{folder}/{name}:/content"
         resp = requests.put(
-            uri, headers={**self._headers(), "Content-Type": _DOCX_CT}, data=data, timeout=120
+            uri, headers={**self._headers(), "Content-Type": _content_type(name)},
+            data=data, timeout=120,
         )
         if resp.status_code not in (200, 201):
             raise RuntimeError(f"Upload failed HTTP {resp.status_code}: {resp.text[:300]}")
@@ -148,7 +162,7 @@ class GraphClient:
                 {
                     "@odata.type": "#microsoft.graph.fileAttachment",
                     "name": p.name,
-                    "contentType": _DOCX_CT,
+                    "contentType": _content_type(p.name),
                     "contentBytes": b64,
                 }
             ]

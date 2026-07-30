@@ -127,16 +127,12 @@ def main() -> int:
     notes = report_builder.read_notes(THIS_DIR / cfg.get("notes_file", "weekly_notes.md"))
 
     md = report_builder.build_markdown(ww, author, results, notes)
-    md_path = REPORTS_DIR / f"{ww.label}-{ww.year}.md"
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    md_path.write_text(md, encoding="utf-8")
-    print(f"[weekly] Wrote {md_path}")
-
-    docx_name = cfg.get("sharepoint_name_template", "{ww}-Weekly.docx").format(
+    report_name = cfg.get("sharepoint_name_template", "{ww}-JohnMonroe-Weekly.md").format(
         ww=ww.label, year=ww.year)
-    docx_path = REPORTS_DIR / docx_name
-    report_builder.build_docx(ww, author, author_title, results, notes, docx_path)
-    print(f"[weekly] Wrote {docx_path}")
+    report_path = REPORTS_DIR / report_name
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(md, encoding="utf-8")
+    print(f"[weekly] Wrote {report_path}")
 
     if args.dry_run:
         print("[weekly] Dry run - skipping SharePoint upload and email.")
@@ -156,7 +152,7 @@ def main() -> int:
     if not args.no_upload:
         try:
             folder = cfg.get("sharepoint_folder", "weeklies")
-            url = graph.upload_to_library(folder, docx_name, docx_path)
+            url = graph.upload_to_library(folder, report_name, report_path)
             print(f"[weekly] Uploaded to SharePoint: {url}")
             sharepoint_url = url
             upload_ok = True
@@ -173,14 +169,14 @@ def main() -> int:
             html = report_builder.markdown_to_html(md)
             if sharepoint_url:
                 banner = (f"<p><b>SharePoint:</b> "
-                          f"<a href=\"{sharepoint_url}\">{docx_name}</a> "
+                          f"<a href=\"{sharepoint_url}\">{report_name}</a> "
                           f"(also attached)</p>")
             elif not args.no_upload:
                 banner = ("<p style='color:#a00'><b>Note:</b> SharePoint upload did not "
                           "complete this run; see attached/inline report.</p>")
             else:
                 banner = ""
-            graph.send_mail(email_cfg.get("to", []), subject, banner + html, docx_path)
+            graph.send_mail(email_cfg.get("to", []), subject, banner + html, report_path)
             print(f"[weekly] Emailed report to {', '.join(email_cfg.get('to', []))}")
         except GraphAuthError as exc:
             print(f"[weekly] AUTH ERROR (re-auth needed): {exc}")
