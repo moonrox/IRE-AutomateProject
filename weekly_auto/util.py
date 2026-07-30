@@ -20,8 +20,8 @@ def intel_ww(d: date) -> int:
 class WorkWeek(NamedTuple):
     ww: int
     year: int
-    start: date   # Sunday (inclusive)
-    end: date     # Saturday (inclusive)
+    start: date   # Thursday (inclusive) - reporting window opens
+    end: date     # Wednesday (inclusive) - report due date
 
     @property
     def label(self) -> str:
@@ -39,21 +39,36 @@ class WorkWeek(NamedTuple):
     @property
     def human(self) -> str:
         return (
-            f"WW{self.ww} - Week of "
-            f"{self.start.strftime('%b %d')}-{self.end.strftime('%b %d, %Y')}"
+            f"WW{self.ww} - Reporting window "
+            f"{self.start.strftime('%a %b %d')} - "
+            f"{self.end.strftime('%a %b %d, %Y')}"
         )
 
 
+def _report_window(ww: int, year: int) -> tuple[date, date]:
+    """Thu-AM -> Wed-PM reporting window for an Intel work week.
+
+    The report is due on Wednesday, so the window covers the trailing 7 days:
+    the Wednesday that falls inside the WW's Sun-Sat span, back to the prior
+    Thursday. Consecutive work weeks tile without overlap
+    (e.g. WW30 = Thu Jul 16 -> Wed Jul 22, WW31 = Thu Jul 23 -> Wed Jul 29).
+    """
+    ww_sunday = _jan1_sunday(year) + timedelta(weeks=ww - 1)
+    wednesday = ww_sunday + timedelta(days=3)   # Sun + 3 = Wed
+    thursday = wednesday - timedelta(days=6)     # prior Thursday
+    return thursday, wednesday
+
+
 def work_week(d: date | None = None) -> WorkWeek:
-    """Return the WorkWeek (number, year, Sun-Sat window) containing `d`."""
+    """Return the WorkWeek (number, year, Thu-Wed reporting window) for `d`."""
     d = d or date.today()
-    start = _sunday_of(d)
-    end = start + timedelta(days=6)
-    return WorkWeek(ww=intel_ww(d), year=d.year, start=start, end=end)
+    ww, year = intel_ww(d), d.year
+    start, end = _report_window(ww, year)
+    return WorkWeek(ww=ww, year=year, start=start, end=end)
 
 
 def work_week_from_label(label: str, ref: date | None = None) -> WorkWeek:
-    """Build a WorkWeek from a 'WW30' or 'WW30-2026' label."""
+    """Build a WorkWeek (Thu-Wed reporting window) from 'WW30' or 'WW30-2026'."""
     ref = ref or date.today()
     label = label.upper().replace("WW", "")
     if "-" in label:
@@ -61,8 +76,7 @@ def work_week_from_label(label: str, ref: date | None = None) -> WorkWeek:
         ww, year = int(ww_str), int(year_str)
     else:
         ww, year = int(label), ref.year
-    start = _jan1_sunday(year) + timedelta(weeks=ww - 1)
-    end = start + timedelta(days=6)
+    start, end = _report_window(ww, year)
     return WorkWeek(ww=ww, year=year, start=start, end=end)
 
 

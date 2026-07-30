@@ -284,3 +284,59 @@ git remote -v   # expect: origin → intel-innersource/inventory, fork → <you>
 11. Once PR is merged → automation provisions the repo **and writes the GUID back into repos.yml**
 12. `git checkout master; git pull`  ← **pull again to get the auto-generated GUID**
 13. Then `git init` the local folder, **pull-before-push**, and push `main` to the newly provisioned repo
+
+## Weekly Status Report (`run_weekly.py`)
+
+The automated weekly (`python run_weekly.py [--ww WWnn] [--dry-run]`) collects git
+commits, ADRs, Outlook mail (Graph Mail.Read), and Outlook meetings (local COM /
+pywin32 — no Graph Calendars scope), then publishes a **Markdown** deliverable to
+the IRE SharePoint `weeklies` library and emails a copy. Keep this format —
+it is the agreed house style.
+
+### Reporting window — Thursday AM → Wednesday PM
+The report is **due on Wednesday**, so its window is the trailing 7 days:
+**Thursday AM → Wednesday PM**. The Wednesday anchor is the Wednesday that falls
+inside the WW's Intel Sun–Sat span; the window runs back to the prior Thursday.
+Consecutive work weeks tile without overlap, e.g.:
+
+| WW | Reporting window |
+|----|------------------|
+| WW30 | Thu Jul 16 → Wed Jul 22, 2026 |
+| WW31 | Thu Jul 23 → Wed Jul 29, 2026 |
+
+This is implemented in `weekly_auto/util._report_window()`; `work_week()` and
+`work_week_from_label()` both return this Thu–Wed window. Do **not** revert to a
+Sun–Sat window.
+
+### Progress formatting — summary line + top 3 sub-bullets
+Each source is **one summary bullet** (name · change count · themed
+conventional-commit scopes) with the **top 3 items as nested sub-bullets** and an
+`...and N more` roll-up. Sources are capped at 3 sub-bullets each (commits, ADRs,
+meetings, emails). Example:
+
+```markdown
+## Progress
+
+- IRE Dashboard - 13 change(s) this week (across askiredata, ui, catalog):
+  - feat(askiredata): show only working models across providers (2026-07-29)
+  - refactor(ui): add prominent section headers to tables (2026-07-29)
+  - ...and 10 more
+- Key meetings this week (28 total):
+  - IRE - Team Connect Session - Weekly (2026-07-27)
+  - ...and 25 more
+```
+
+Then `## Blockers / Risks` and `## Next Week` (narrative, from `weekly_notes.md`).
+
+### Email body vs. Markdown deliverable
+- The **Markdown file** (SharePoint + attachment) keeps the full detail
+  (summary line **plus** top-3 sub-bullets).
+- The **email body** shows Progress **summary lines only** — sub-bullets are
+  stripped via `report_builder.summary_markdown()`. Blockers / Next Week bullets
+  stay.
+
+### Noise filtering
+Personal / marketing items are excluded via `exclude_keywords` in
+`weekly_sources.json` (calendar: `karate`, `silicon forest`; email: marketing /
+social senders). Add new noise terms there — do not hard-code filters in the
+collectors.
