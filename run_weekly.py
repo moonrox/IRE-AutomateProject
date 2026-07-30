@@ -168,7 +168,8 @@ def main() -> int:
         try:
             subject = email_cfg.get("subject_template", "IRE Weekly Status - {ww}").format(
                 ww=ww.label, year=ww.year)
-            html = report_builder.markdown_to_html(md)
+            html = report_builder.markdown_to_html(
+                report_builder.summary_markdown(md))
             if sharepoint_url:
                 banner = (f"<p><b>SharePoint:</b> "
                           f"<a href=\"{sharepoint_url}\">{report_name}</a> "

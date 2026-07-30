@@ -1,6 +1,6 @@
 # WW31 - Week of Jul 26-Aug 01, 2026
 John Monroe | Infrastructure Reliability Engineering
-_Generated 2026-07-30 07:09 by weekly_auto_
+_Generated 2026-07-30 07:13 by weekly_auto_
 
 ## Progress
 
@@ -12,11 +12,11 @@ _Generated 2026-07-30 07:09 by weekly_auto_
 - crg-mcp-service - 2 change(s) this week (docs):
   - docs: add Phase-2 execution backlog (2026-07-29)
   - Initial commit: hosted CRG MCP service for Intel MCP Registry (2026-07-29)
-- IRE-AutomateProject - 8 change(s) this week (across graph, weekly, WW31, m365):
+- IRE-AutomateProject - 9 change(s) this week (across weekly, graph, WW31, m365):
+  - feat(weekly): organize report - per-source summary + top 3 sub-bullets, filter personal/marketing noise (2026-07-30)
   - feat(graph): add delete_from_library; publish WW31 weekly as md (2026-07-29)
   - feat(weekly): make Markdown the weekly deliverable (drop DOCX) (2026-07-29)
-  - report(WW31): generate weekly with email + calendar sources (2026-07-29)
-  - ...and 5 more
+  - ...and 6 more
 - IRE-python-template - 2 change(s) this week (ci, skills):
   - ci: replace blocked CRG third-party action with pinned pip install (#2) (2026-07-29)
   - skills: add continuous-learning-teach (governed Teach control plane) + identity/prompt-security callouts (#1) (2026-07-29)
@@ -30,11 +30,11 @@ _Generated 2026-07-30 07:09 by weekly_auto_
   - IRE - Team Connect Session- Weekly - Belvadi, Santhosh @ Microsoft Teams Meeting (2026-07-27)
   - Intel Company Meeting - Employee Communications @ Live webcast (link below) (2026-07-27)
   - ...and 25 more
-- Notable email activity this week (23 total):
+- Notable email activity this week (22 total):
   - [Inbox] IRE Weekly Status - WWWW31 (2026) - john.monroe@intel.com (2026-07-30)
   - [Inbox] Intel + BigPanda Bi-Weekly Sync Follow-Up - jmantri@bigpanda.io (2026-07-29)
   - [Inbox] IRE Sergio Analytics - Session Summary 2026-07-29 - sergio.sanchez.ramos@intel.com (2026-07-29)
-  - ...and 20 more
+  - ...and 19 more
 
 ## Blockers / Risks
 

@@ -258,6 +258,21 @@ def build_docx(ww: WorkWeek, author: str, author_title: str,
     return out_path
 
 
+def summary_markdown(md: str) -> str:
+    """Return a condensed copy of the report for the email body.
+
+    Drops nested sub-bullets (2-space-indented lines) so Progress shows only the
+    high-level summary line per item. Top-level Blockers / Next Week bullets are
+    unaffected. The full detail remains in the Markdown deliverable.
+    """
+    kept: list[str] = []
+    for line in md.splitlines():
+        if line.startswith("  ") and line.lstrip().startswith("-"):
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
 def markdown_to_html(md: str) -> str:
     """Very small Markdown-to-HTML shim for the email body (headings + bullets)."""
     html: list[str] = ["<html><body style=\"font-family:Calibri,Arial,sans-serif\">"]
