@@ -142,6 +142,19 @@ class GraphClient:
             raise RuntimeError(f"Upload failed HTTP {resp.status_code}: {resp.text[:300]}")
         return resp.json().get("webUrl", "")
 
+    def delete_from_library(self, folder: str, name: str) -> bool:
+        """DELETE a file from the site's default drive under `folder`.
+
+        Returns True if deleted, False if it did not exist (HTTP 404).
+        """
+        uri = f"{_GRAPH}/sites/{self._site}/drive/root:/{folder}/{name}:/"
+        resp = requests.delete(uri, headers=self._headers(), timeout=60)
+        if resp.status_code in (200, 204):
+            return True
+        if resp.status_code == 404:
+            return False
+        raise RuntimeError(f"Delete failed HTTP {resp.status_code}: {resp.text[:300]}")
+
     def send_mail(
         self,
         to: list[str],

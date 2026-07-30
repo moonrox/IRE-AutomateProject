@@ -1,6 +1,6 @@
 # WW31 - Week of Jul 26-Aug 01, 2026
 John Monroe | Infrastructure Reliability Engineering
-_Generated 2026-07-29 22:35 by weekly_auto_
+_Generated 2026-07-29 22:39 by weekly_auto_
 
 ## Progress
 
@@ -21,7 +21,8 @@ _Generated 2026-07-29 22:35 by weekly_auto_
 - crg-mcp-service - 2 change(s) this week:
   - docs: add Phase-2 execution backlog (2026-07-29)
   - Initial commit: hosted CRG MCP service for Intel MCP Registry (2026-07-29)
-- IRE-AutomateProject - 6 change(s) this week:
+- IRE-AutomateProject - 7 change(s) this week:
+  - feat(weekly): make Markdown the weekly deliverable (drop DOCX) (2026-07-29)
   - report(WW31): generate weekly with email + calendar sources (2026-07-29)
   - feat(weekly): add non-Graph Outlook calendar/meeting scanning via COM (2026-07-29)
   - feat(weekly): add Outlook email scanning to weekly status report (2026-07-29)
