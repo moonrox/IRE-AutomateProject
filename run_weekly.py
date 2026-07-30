@@ -7,9 +7,11 @@ Steps:
   4. Upload the .docx to the IRE SharePoint 'weeklies' library.
   5. Email a copy (with attachment) to the configured recipient(s).
 
-Designed to run unattended from a Scheduled Task (Wed 17:00). Auth reuses the
-already-consented Sites.ReadWrite.All + Mail.Send delegated token cached by the
-IRE Graph PowerShell scripts (no OneNote / admin-consent dependency).
+Designed to run unattended from a Scheduled Task (Wed 17:00). Auth is delegated
+and honours WEEKLY_AUTH_MODE (or config auth_mode); the default 'auto' reuses a
+seeded Graph refresh token when present and otherwise falls back to the signed-in
+Azure CLI (az login) - which works across resource domains with an amr login and
+needs no custom app registration, admin consent, or Python MSAL.
 
 Usage:
     python run_weekly.py                 # current work week, upload + email
@@ -47,6 +49,25 @@ def _load_config() -> dict:
     return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
 
 
+def _auth_mode(cfg: dict) -> str:
+    """Resolve auth mode: WEEKLY_AUTH_MODE env > config auth_mode > 'auto'."""
+    return (os.getenv("WEEKLY_AUTH_MODE") or cfg.get("auth_mode") or "auto").strip().lower()
+
+
+def _make_graph(cfg: dict) -> GraphClient:
+    """Build a GraphClient honouring the configured auth mode.
+
+    'az'/'auto' reuse the signed-in Azure CLI session (az login) and do not
+    require DEV_TENANT_ID/DEV_CLIENT_ID; 'refresh_token' needs them.
+    """
+    return GraphClient(
+        os.getenv("DEV_TENANT_ID", ""),
+        os.getenv("DEV_CLIENT_ID", ""),
+        os.getenv("SITE_ID", ""),
+        auth_mode=_auth_mode(cfg),
+    )
+
+
 def _collect_email_sources(cfg: dict, ww) -> list:
     """Scan Outlook mail (Graph Mail.Read) if email_source is enabled.
 
@@ -58,15 +79,13 @@ def _collect_email_sources(cfg: dict, ww) -> list:
         return []
 
     name = email_src.get("name", "Outlook Email")
-    tenant = os.getenv("DEV_TENANT_ID", "")
-    client = os.getenv("DEV_CLIENT_ID", "")
-    site = os.getenv("SITE_ID", "")
-    if not (tenant and client):
+    mode = _auth_mode(cfg)
+    if mode == "refresh_token" and not (os.getenv("DEV_TENANT_ID") and os.getenv("DEV_CLIENT_ID")):
         r = collectors.SourceResult(name=name, kind="email")
         r.warning = "email scan skipped: DEV_TENANT_ID / DEV_CLIENT_ID missing from .env"
         return [r]
 
-    graph = GraphClient(tenant, client, site)
+    graph = _make_graph(cfg)
     print(f"[weekly] Scanning Outlook mail: folders={email_src.get('folders', ['Inbox'])}")
     return [collectors.collect_email(
         name,
@@ -113,14 +132,12 @@ def _collect_transcript_sources(cfg: dict, ww) -> list:
     if not tr_src.get("enabled"):
         return []
     name = tr_src.get("name", "Meeting Transcripts")
-    tenant = os.getenv("DEV_TENANT_ID", "")
-    client = os.getenv("DEV_CLIENT_ID", "")
-    site = os.getenv("SITE_ID", "")
-    if not (tenant and client):
+    mode = _auth_mode(cfg)
+    if mode == "refresh_token" and not (os.getenv("DEV_TENANT_ID") and os.getenv("DEV_CLIENT_ID")):
         r = collectors.SourceResult(name=name, kind="transcript")
         r.warning = "transcript scan skipped: DEV_TENANT_ID / DEV_CLIENT_ID missing from .env"
         return [r]
-    graph = GraphClient(tenant, client, site)
+    graph = _make_graph(cfg)
     out_dir = THIS_DIR / tr_src.get("out_dir", "transcripts")
     print(f"[weekly] Capturing Teams transcripts (Graph, organizer-only) -> {out_dir}")
     return [collectors.collect_transcripts(
@@ -169,14 +186,17 @@ def main() -> int:
         print("[weekly] Dry run - skipping SharePoint upload and email.")
         return 0
 
-    tenant = os.getenv("DEV_TENANT_ID", "")
-    client = os.getenv("DEV_CLIENT_ID", "")
+    mode = _auth_mode(cfg)
     site = os.getenv("SITE_ID", "")
-    if not (tenant and client and site):
-        print("[weekly] ERROR: DEV_TENANT_ID / DEV_CLIENT_ID / SITE_ID missing from .env")
+    want_upload = not args.no_upload
+    if want_upload and not site:
+        print("[weekly] ERROR: SITE_ID missing from .env (required for SharePoint upload)")
+        return 2
+    if mode == "refresh_token" and not (os.getenv("DEV_TENANT_ID") and os.getenv("DEV_CLIENT_ID")):
+        print("[weekly] ERROR: refresh_token auth needs DEV_TENANT_ID / DEV_CLIENT_ID in .env")
         return 2
 
-    graph = GraphClient(tenant, client, site)
+    graph = _make_graph(cfg)
 
     sharepoint_url = ""
     if not args.no_upload:

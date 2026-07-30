@@ -1,6 +1,7 @@
 {
   "author": "John Monroe",
   "author_title": "Infrastructure Reliability Engineering  |  IRE Telemetry Lead / AI Evangelist",
+  "auth_mode": "auto",
   "sharepoint_folder": "weeklies",
   "sharepoint_name_template": "{ww}-JohnMonroe-Weekly.md",
   "email": {

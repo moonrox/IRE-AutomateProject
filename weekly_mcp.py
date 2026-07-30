@@ -27,7 +27,7 @@ from fastmcp import FastMCP
 
 import run_weekly as rw
 from weekly_auto import collectors, report_builder
-from weekly_auto.graph_client import GraphAuthError, GraphClient
+from weekly_auto.graph_client import GraphAuthError
 from weekly_auto.util import work_week, work_week_from_label
 
 THIS_DIR = Path(__file__).resolve().parent
@@ -113,8 +113,9 @@ def generate_weekly(ww: str | None = None) -> dict:
 def publish_weekly(ww: str | None = None, upload: bool = True, email: bool = True) -> dict:
     """Build, then SharePoint-upload and/or email the weekly for `ww`.
 
-    Requires DEV_TENANT_ID / DEV_CLIENT_ID / SITE_ID in the environment and a
-    valid cached Graph token. Returns the SharePoint URL and delivery status.
+    Auth honours WEEKLY_AUTH_MODE / config auth_mode (default 'auto': cached
+    Graph token if seeded, else az login). SharePoint upload requires SITE_ID.
+    Returns the SharePoint URL and delivery status.
     """
     cfg = rw._load_config()
     wk = _resolve_ww(ww)
@@ -127,13 +128,15 @@ def publish_weekly(ww: str | None = None, upload: bool = True, email: bool = Tru
     path = reports_dir / name
     path.write_text(md, encoding="utf-8")
 
-    tenant = os.getenv("DEV_TENANT_ID", "")
-    client = os.getenv("DEV_CLIENT_ID", "")
+    mode = rw._auth_mode(cfg)
     site = os.getenv("SITE_ID", "")
-    if not (tenant and client and site):
-        return {"error": "DEV_TENANT_ID / DEV_CLIENT_ID / SITE_ID missing from environment",
+    if upload and not site:
+        return {"error": "SITE_ID missing from environment (required for SharePoint upload)",
                 "path": str(path)}
-    graph = GraphClient(tenant, client, site)
+    if mode == "refresh_token" and not (os.getenv("DEV_TENANT_ID") and os.getenv("DEV_CLIENT_ID")):
+        return {"error": "refresh_token auth needs DEV_TENANT_ID / DEV_CLIENT_ID in environment",
+                "path": str(path)}
+    graph = rw._make_graph(cfg)
     status: dict = {"work_week": wk.human, "path": str(path)}
 
     if upload:
@@ -169,12 +172,10 @@ def fetch_transcripts(ww: str | None = None) -> dict:
     """
     cfg = rw._load_config()
     wk = _resolve_ww(ww)
-    tenant = os.getenv("DEV_TENANT_ID", "")
-    client = os.getenv("DEV_CLIENT_ID", "")
-    site = os.getenv("SITE_ID", "")
-    if not (tenant and client):
-        return {"error": "DEV_TENANT_ID / DEV_CLIENT_ID missing from environment"}
-    graph = GraphClient(tenant, client, site)
+    if rw._auth_mode(cfg) == "refresh_token" and not (
+            os.getenv("DEV_TENANT_ID") and os.getenv("DEV_CLIENT_ID")):
+        return {"error": "refresh_token auth needs DEV_TENANT_ID / DEV_CLIENT_ID in environment"}
+    graph = rw._make_graph(cfg)
     tr_src = cfg.get("transcript_source", {})
     out_dir = THIS_DIR / tr_src.get("out_dir", "transcripts")
     res = collectors.collect_transcripts(

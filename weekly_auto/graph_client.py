@@ -1,29 +1,48 @@
 """weekly_auto.graph_client - minimal Microsoft Graph client for the weekly job.
 
-Reuses the SAME proven, already-consented delegated credential that the IRE
-project-tracking flow uses: a DPAPI-encrypted refresh token cached by the
-PowerShell Graph scripts at %APPDATA%\\IRE-graph_refresh.bin, refreshed for the
-Sites.ReadWrite.All + Mail.Send + Mail.Read scopes.
+Two delegated auth paths, selected by ``auth_mode`` (default ``auto``):
+
+1. ``az`` - acquire a Graph token from the signed-in **Azure CLI** session
+   (``az account get-access-token``). This reuses the credentials the user
+   already established with ``az login`` and works even when the laptop is
+   joined to a *different resource domain* than the ``amr`` login. It needs NO
+   custom app registration, NO admin consent, and NO Python MSAL dependency
+   (so it is immune to the MSAL version pitfalls of the device-code flow).
+
+2. ``refresh_token`` - reuse the proven, already-consented delegated credential
+   that the IRE project-tracking flow uses: a DPAPI-encrypted refresh token
+   cached by the PowerShell Graph scripts at %APPDATA%\\IRE-graph_refresh.bin,
+   refreshed for Sites.ReadWrite.All + Mail.Send + Mail.Read + Calendars.Read.
+
+``auto`` (the default) uses the cached refresh token when it exists, and
+otherwise falls back to the Azure CLI - so an existing seeded machine keeps
+working while a brand-new user only needs ``az login``.
 
 This deliberately avoids the OneNote path (Notes.ReadWrite.All) which is blocked
-on IT admin consent, and the Calendars.Read path which is frequently un-consented
-for this app (the exact gap a customer hit: mail worked, calendar did not). All
-scopes used here are delegated and already consented for the app, so the
-scheduled job runs unattended with no device-code prompt.
+on IT admin consent.
 
-NOTE: Mail.Read was added after the original seed. If reading mail returns an
-auth/scope error, re-seed the cached refresh token once (interactive device-code)
-so consent includes Mail.Read -- see IRE-SharePoint.ps1 -Action GetToken.
+NOTE (refresh_token mode): Mail.Read was added after the original seed. If
+reading mail returns an auth/scope error, re-seed the cached refresh token once
+(interactive device-code) so consent includes Mail.Read -- see
+IRE-SharePoint.ps1 -Action GetToken.
 """
 from __future__ import annotations
 
 import base64
 import ctypes
 import ctypes.wintypes as wintypes
+import json
 import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import requests
+
+# Resource/audience for Microsoft Graph tokens issued by the Azure CLI.
+_GRAPH_RESOURCE = "https://graph.microsoft.com"
+# Recognised auth modes.
+_AUTH_MODES = ("auto", "az", "refresh_token")
 
 _TOKEN_URL = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
 _GRAPH = "https://graph.microsoft.com/v1.0"
@@ -90,25 +109,40 @@ class GraphAuthError(RuntimeError):
 
 
 class GraphClient:
-    def __init__(self, tenant_id: str, client_id: str, site_id: str) -> None:
+    def __init__(self, tenant_id: str = "", client_id: str = "", site_id: str = "",
+                 auth_mode: str = "auto") -> None:
         self._tenant = tenant_id
         self._client = client_id
         self._site = site_id
+        mode = (auth_mode or "auto").strip().lower()
+        if mode not in _AUTH_MODES:
+            raise GraphAuthError(
+                f"Unknown auth_mode '{auth_mode}'. Use one of: {', '.join(_AUTH_MODES)}."
+            )
+        self._auth_mode = mode
         self._token: str | None = None
 
     # ── auth ────────────────────────────────────────────────────────────────
+    def _refresh_cache_path(self) -> Path:
+        return Path(os.environ.get("APPDATA", str(Path.home()))) / _REFRESH_CACHE
+
     def _load_refresh_token(self) -> str:
-        cache = Path(os.environ.get("APPDATA", str(Path.home()))) / _REFRESH_CACHE
+        cache = self._refresh_cache_path()
         if not cache.exists():
             raise GraphAuthError(
                 f"No cached Graph credential at {cache}. Run IRE-SharePoint.ps1 "
-                "-Action GetToken once (interactive) to seed it."
+                "-Action GetToken once (interactive) to seed it, or use az login "
+                "(auth_mode 'az')."
             )
         return _dpapi_unprotect(base64.b64decode(cache.read_text())).decode()
 
-    def token(self) -> str:
-        if self._token:
-            return self._token
+    def _token_from_refresh(self) -> str:
+        """Acquire a Graph token from the DPAPI-cached delegated refresh token."""
+        if not (self._tenant and self._client):
+            raise GraphAuthError(
+                "refresh_token auth requires DEV_TENANT_ID and DEV_CLIENT_ID "
+                "(set them in .env) or switch to auth_mode 'az' (az login)."
+            )
         refresh = self._load_refresh_token()
         resp = requests.post(
             _TOKEN_URL.format(tenant=self._tenant),
@@ -126,7 +160,58 @@ class GraphClient:
                 f"Token refresh failed ({data.get('error')}): "
                 f"{data.get('error_description', 'unknown')[:180]}"
             )
-        self._token = data["access_token"]
+        return data["access_token"]
+
+    def _token_from_az(self) -> str:
+        """Acquire a Graph token from the signed-in Azure CLI (``az login``).
+
+        Reuses the user's existing az session, so it works across resource
+        domains with an amr login and needs no app registration or MSAL. Raises
+        an actionable GraphAuthError when az is missing or no one is logged in.
+        """
+        az = shutil.which("az") or shutil.which("az.cmd")
+        if not az:
+            raise GraphAuthError(
+                "Azure CLI ('az') not found on PATH. Install it and run "
+                "'az login', then set auth_mode 'az' (or 'auto')."
+            )
+        cmd = [az, "account", "get-access-token",
+               "--resource", _GRAPH_RESOURCE, "--output", "json"]
+        if self._tenant:
+            cmd += ["--tenant", self._tenant]
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise GraphAuthError(f"Failed to invoke az: {exc}") from exc
+        if proc.returncode != 0:
+            err = (proc.stderr or proc.stdout or "").strip()[:200]
+            raise GraphAuthError(
+                "az account get-access-token failed - run 'az login' first "
+                f"(cross-domain laptops: 'az login --use-device-code'). Detail: {err}"
+            )
+        try:
+            token = json.loads(proc.stdout).get("accessToken", "")
+        except (ValueError, TypeError) as exc:
+            raise GraphAuthError(f"Could not parse az token output: {exc}") from exc
+        if not token:
+            raise GraphAuthError("az returned no accessToken - run 'az login' first.")
+        return token
+
+    def token(self) -> str:
+        if self._token:
+            return self._token
+        if self._auth_mode == "az":
+            self._token = self._token_from_az()
+        elif self._auth_mode == "refresh_token":
+            self._token = self._token_from_refresh()
+        else:  # auto: prefer an existing seeded refresh token, else az login
+            if self._refresh_cache_path().exists() and self._tenant and self._client:
+                try:
+                    self._token = self._token_from_refresh()
+                except GraphAuthError:
+                    self._token = self._token_from_az()
+            else:
+                self._token = self._token_from_az()
         return self._token
 
     def _headers(self) -> dict:
