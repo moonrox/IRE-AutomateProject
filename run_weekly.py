@@ -74,6 +74,7 @@ def _collect_email_sources(cfg: dict, ww) -> list:
         email_src.get("folders", ["Inbox"]),
         ww,
         keywords=email_src.get("subject_keywords"),
+        exclude=email_src.get("exclude_keywords"),
         max_items=int(email_src.get("max_items", 25)),
     )]
 
@@ -96,6 +97,7 @@ def _collect_calendar_sources(cfg: dict, ww) -> list:
         lookahead_days=int(cal_src.get("lookahead_days", 7)),
         meetings_only=bool(cal_src.get("meetings_only", True)),
         keywords=cal_src.get("subject_keywords"),
+        exclude=cal_src.get("exclude_keywords"),
         max_items=int(cal_src.get("max_items", 30)),
     )]
 

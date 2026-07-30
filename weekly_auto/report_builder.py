@@ -74,44 +74,87 @@ def _group(results: list[SourceResult]) -> tuple[dict, list, list, list, list]:
     return commits, adrs, emails, meetings, warnings
 
 
-_MAX_EMAILS = 15
-_MAX_MEETINGS = 20
+_MAX_COMMITS_PER_SOURCE = 3
+_MAX_EMAILS = 3
+_MAX_MEETINGS = 3
+
+
+def _summarize_commits(items: list) -> str:
+    """Derive a short themed summary from conventional-commit scopes/types.
+
+    e.g. 'feat(ui): ...', 'docs(ops): ...' -> 'across ui, ops, catalog, cmdb'.
+    Falls back to the change types (feat/docs/fix) when no scopes are present.
+    """
+    scopes: list[str] = []
+    types: list[str] = []
+    for it in items:
+        m = re.match(r"^(\w+)\(([^)]+)\):", it.title)
+        if m:
+            if m.group(1) not in types:
+                types.append(m.group(1))
+            for s in m.group(2).split(","):
+                s = s.strip()
+                if s and s not in scopes:
+                    scopes.append(s)
+        else:
+            tm = re.match(r"^(\w+):", it.title)
+            if tm and tm.group(1) not in types:
+                types.append(tm.group(1))
+    if scopes:
+        return "across " + ", ".join(scopes[:6])
+    if types:
+        return ", ".join(types[:6])
+    return ""
 
 
 def _progress_lines(results: list[SourceResult]) -> list[str]:
+    """Organized progress: one summary bullet per source, top 3 items as sub-bullets."""
     commits, adrs, emails, meetings, _ = _group(results)
     lines: list[str] = []
+
     if adrs:
-        lines.append("New Architecture Decision Records (ADRs) added this week:")
-        for a in sorted(adrs, key=lambda x: x.ref):
+        shown = sorted(adrs, key=lambda x: x.ref)[:_MAX_COMMITS_PER_SOURCE]
+        extra = len(adrs) - len(shown)
+        lines.append(f"New Architecture Decision Records - {len(adrs)} added this week:")
+        for a in shown:
             lines.append(f"    - {a.title} ({a.date})")
+        if extra > 0:
+            lines.append(f"    - ...and {extra} more")
+
     for source, items in commits.items():
         if not items:
             continue
         shown = items[:_MAX_COMMITS_PER_SOURCE]
         extra = len(items) - len(shown)
-        header = f"{source} - {len(items)} change(s) this week:"
+        summary = _summarize_commits(items)
+        header = f"{source} - {len(items)} change(s) this week"
+        if summary:
+            header += f" ({summary})"
+        header += ":"
         lines.append(header)
         for it in shown:
             lines.append(f"    - {it.title} ({it.date})")
         if extra > 0:
             lines.append(f"    - ...and {extra} more")
+
     if meetings:
         shown = sorted(meetings, key=lambda x: x.date)[:_MAX_MEETINGS]
         extra = len(meetings) - len(shown)
-        lines.append(f"Meetings this week ({len(meetings)}):")
+        lines.append(f"Key meetings this week ({len(meetings)} total):")
         for it in shown:
             lines.append(f"    - {it.title} ({it.date})")
         if extra > 0:
             lines.append(f"    - ...and {extra} more")
+
     if emails:
         shown = emails[:_MAX_EMAILS]
         extra = len(emails) - len(shown)
-        lines.append(f"Relevant email activity this week ({len(emails)}):")
+        lines.append(f"Notable email activity this week ({len(emails)} total):")
         for it in shown:
             lines.append(f"    - {it.title} ({it.date})")
         if extra > 0:
             lines.append(f"    - ...and {extra} more")
+
     if not lines:
         lines.append("No source activity detected in the work-week window.")
     return lines
@@ -130,8 +173,10 @@ def build_markdown(ww: WorkWeek, author: str, results: list[SourceResult],
     out.append("## Progress")
     out.append("")
     for line in _progress_lines(results):
-        indent = "  " if line.startswith("    ") else ""
-        out.append(f"{indent}- {line.strip()}" if not line.startswith("    ") else f"  {line.strip()}")
+        if line.startswith("    "):
+            out.append(f"  {line.strip()}")
+        else:
+            out.append(f"- {line.strip()}")
     out.append("")
     out.append("## Blockers / Risks")
     out.append("")

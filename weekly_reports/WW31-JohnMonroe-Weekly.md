@@ -1,84 +1,40 @@
 # WW31 - Week of Jul 26-Aug 01, 2026
 John Monroe | Infrastructure Reliability Engineering
-_Generated 2026-07-29 22:39 by weekly_auto_
+_Generated 2026-07-30 07:09 by weekly_auto_
 
 ## Progress
 
-- IRE Dashboard - 13 change(s) this week:
+- IRE Dashboard - 13 change(s) this week (across askiredata, ui, catalog, guide, ire-sla, ire-observability):
   - feat(askiredata): show only working models across providers in picker (2026-07-29)
   - feat(askiredata): replace opus 4.8 with gpt-5.5 model option (2026-07-29)
   - refactor(ui): add prominent section headers to discovery tables (2026-07-29)
-  - refactor(ui): stack discovery tables vertically instead of side-by-side (2026-07-29)
-  - feat(catalog): add description column to discovery catalog with hover tooltip (2026-07-28)
-  - docs(guide): update CopilotAPIGuide for 2026-07-28 changes; fix CMDB query fallback (2026-07-28)
-  - feat(ire-sla, ire-observability): SLA API expansion, DT topology providers (2026-07-28)
-  - docs(ops): README, ADR-0003, data sources, env config, ops scripts (2026-07-28)
-  - feat(ui): page enhancements - signal readiness, CMDB quality, risk register, network, docs (2026-07-28)
-  - feat(core): server, schema, ITSM/CMDB clients, RCA deep dive, risk/change data (2026-07-28)
-  - feat(ui): add AppShowback, MajorIncidents, AgenticArchitecture pages; shared nav (2026-07-28)
-  - feat(cmdb): rebuild v_cmdb_rel_flat from apigee_cmdb_rel_ci; full backfill scripts (2026-07-28)
-  - ...and 1 more
-- crg-mcp-service - 2 change(s) this week:
+  - ...and 10 more
+- crg-mcp-service - 2 change(s) this week (docs):
   - docs: add Phase-2 execution backlog (2026-07-29)
   - Initial commit: hosted CRG MCP service for Intel MCP Registry (2026-07-29)
-- IRE-AutomateProject - 7 change(s) this week:
+- IRE-AutomateProject - 8 change(s) this week (across graph, weekly, WW31, m365):
+  - feat(graph): add delete_from_library; publish WW31 weekly as md (2026-07-29)
   - feat(weekly): make Markdown the weekly deliverable (drop DOCX) (2026-07-29)
   - report(WW31): generate weekly with email + calendar sources (2026-07-29)
-  - feat(weekly): add non-Graph Outlook calendar/meeting scanning via COM (2026-07-29)
-  - feat(weekly): add Outlook email scanning to weekly status report (2026-07-29)
-  - docs(m365): add Weekly Summary Writer agent SharePoint-publish integration (2026-07-28)
-  - feat(weekly): include SharePoint link in report email body (2026-07-28)
-  - Initial commit: IRE PowerAutomate / weekly-report toolkit (2026-07-28)
-- IRE-python-template - 2 change(s) this week:
+  - ...and 5 more
+- IRE-python-template - 2 change(s) this week (ci, skills):
   - ci: replace blocked CRG third-party action with pinned pip install (#2) (2026-07-29)
   - skills: add continuous-learning-teach (governed Teach control plane) + identity/prompt-security callouts (#1) (2026-07-29)
-- skills_analysis - 7 change(s) this week:
+- skills_analysis - 7 change(s) this week (across public):
   - journey: add v1.51 master - new S15 production hosting, durability & portable guardrails (2026-07-29)
   - journey(public): sync public doc v1.46 -> v1.50 (2026-07-29)
   - chore: archive AI_Enabled_Journey_v1.49.docx (2026-07-29)
-  - journey: v1.50 - From Guardrails to Governed Learning (attrib. K. Harris) (2026-07-29)
-  - journey: v1.49 - add 'Barriers to Adoption' to Conclusion (2026-07-29)
-  - journey: v1.48 - add ISO/IEC 42001:2023 AIMS study to JHU track (2026-07-28)
-  - Initial commit: IRE skills analysis + AI journey docs (2026-07-28)
-- Meetings this week (30):
+  - ...and 4 more
+- Key meetings this week (28 total):
   - Review  network IRE Resiliency slides for Network Engineering - Belvadi, Santhosh @ Microsoft Teams Meeting (2026-07-27)
   - IRE - Team Connect Session- Weekly - Belvadi, Santhosh @ Microsoft Teams Meeting (2026-07-27)
   - Intel Company Meeting - Employee Communications @ Live webcast (link below) (2026-07-27)
-  - Intel working session - Trevor Evenson (2026-07-27)
-  - IAPM & SNOW link questions - Webster, Amy C @ Microsoft Teams Meeting (2026-07-27)
-  - Silicon Forest Karate 5:30pm Monday - Rice, Ritchie @ Zoom or Park (2026-07-27)
-  - Weekly Major Problem Review (MPR) – RCA Readiness & Documentation Completion - Agrawal, Rakesh Kumar @ Microsoft Teams Meeting (2026-07-28)
-  - 1:1 - - Monroe, John @ Microsoft Teams Meeting (2026-07-28)
-  - AL AI - Gregory, Mark F @ Microsoft Teams Meeting (2026-07-28)
-  - 1:1 - Webster, Amy C @ Microsoft Teams Meeting (2026-07-28)
-  - Silicon Forest Karate Class Tuesday JF2 FC 5:30pmpm - Rice, Ritchie @ JF2 FC (2026-07-28)
-  - Hawthorn Farm Data Centers Shutdown - Sync up meeting - Schmidt, Harry @ Microsoft Teams Meeting (2026-07-28)
-  - Intel + BigPanda Bi-Weekly Sync - Aiden Kahn (2026-07-29)
-  - karate - Suto, Gyuszi @ zoom (2026-07-29)
-  - 1:1 John/Sergio - Sanchez Ramos, Sergio @ Microsoft Teams Meeting (2026-07-29)
-  - BigPanda + Intel sync - Aiden Kahn (2026-07-30)
-  - karate - Suto, Gyuszi @ zoom (2026-07-30)
-  - Silicon Forest Karate Class Friday JF2 FC noon - Rice, Ritchie @ JF2 FC (2026-07-31)
-  - Refresh ISMP/ServiceNow Preview, Test - McKain, Mark @ Save your work!!! (2026-08-01)
-  - Refresh ISMP/ServiceNow sandbox 106 - McKain, Mark @ Save your work!!! (2026-08-02)
-  - ...and 10 more
-- Relevant email activity this week (25):
+  - ...and 25 more
+- Notable email activity this week (23 total):
   - [Inbox] IRE Weekly Status - WWWW31 (2026) - john.monroe@intel.com (2026-07-30)
   - [Inbox] Intel + BigPanda Bi-Weekly Sync Follow-Up - jmantri@bigpanda.io (2026-07-29)
   - [Inbox] IRE Sergio Analytics - Session Summary 2026-07-29 - sergio.sanchez.ramos@intel.com (2026-07-29)
-  - [Inbox] 📢 Smartsheet Work Insights Retirement – Action Required... - notifications_intel@engage.mail.microsoft (2026-07-29)
-  - [Inbox] JHU Master Class Update!: JHU_Applied_Generative_AI&Agentic_AI_May_A Masterclass - no-reply@mygreatlearning.com (2026-07-29)
-  - [Inbox] Path to Production Agentic  Durability - kyle.r.harris@intel.com (2026-07-29)
-  - [Inbox] Recovered: P1 - Critical Major Incident: INC15671847 - IDC9 impacted due to Firewall Change - It.support.and.services.cloud@intel.com (2026-07-29)
-  - [Inbox] 📢 Smartsheet Update: Card View Retirement – Action... - notifications_intel@engage.mail.microsoft (2026-07-29)
-  - [Inbox] [intel-innersource/applications.services.resiliency.ire-python-template] PR run failed at startup: CRG PR Review (optional) - skills: add continuous-learning-teach (governed Teach control plane) + identity/prompt-security callouts (c620238) - notifications@github.com (2026-07-29)
-  - [Inbox] [intel-innersource/applications.services.resiliency.ire-python-template] PR run failed at startup: CRG PR Review (optional) - skills: add continuous-learning-teach (governed Teach control plane) + identity/prompt-security callouts (44f91bf) - notifications@github.com (2026-07-29)
-  - [Inbox] Backlog Update 8 - Kudo's for Teach and Learn - kyle.r.harris@intel.com (2026-07-29)
-  - [Inbox] Backlog Update 7 - Teach and Learn - kyle.r.harris@intel.com (2026-07-29)
-  - [Inbox] [AI Dashboards] Backup & Recovery — Daily Status — 100.0% execution health (24h) - igpt_iaas_rpts@intel.com (2026-07-29)
-  - [Inbox] Find New Deals in Your Weekly Ad 🤩 | Same Points, More Choices | Earn 4X Points - email@e.fredmeyermail.com (2026-07-29)
-  - [Sent Items] RE: IRE Sergio Analytics - Session Summary 2026-07-29 - john.monroe@intel.com (2026-07-30)
-  - ...and 10 more
+  - ...and 20 more
 
 ## Blockers / Risks
 

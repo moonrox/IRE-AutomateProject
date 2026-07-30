@@ -191,13 +191,15 @@ def collect_fs_mtime(name: str, path: str, ww: WorkWeek) -> SourceResult:
 
 def collect_email(name: str, graph, folders: list[str], ww: WorkWeek,
                   keywords: list[str] | None = None,
+                  exclude: list[str] | None = None,
                   max_items: int = 25) -> SourceResult:
     """Scan Outlook mail folders (via Graph Mail.Read) for the WW window.
 
     `graph` is a GraphClient exposing read_messages(). Produces ChangeItem
     (category='email'). Optional `keywords` filter subject/preview
-    case-insensitively. Degrades gracefully: an auth/scope gap or API error
-    yields a warning rather than crashing the run.
+    case-insensitively; `exclude` drops noise (marketing, personal) by matching
+    subject/preview/sender case-insensitively. Degrades gracefully: an auth/scope
+    gap or API error yields a warning rather than crashing the run.
     """
     from .graph_client import GraphAuthError  # local import: avoids hard dep
 
@@ -205,13 +207,16 @@ def collect_email(name: str, graph, folders: list[str], ww: WorkWeek,
     since = f"{ww.since_iso}T00:00:00Z"
     until = f"{ww.end.isoformat()}T23:59:59Z"
     kws = [k.lower() for k in (keywords or [])]
+    excl = [e.lower() for e in (exclude or [])]
     seen: set[str] = set()
     try:
         for folder in folders or ["Inbox"]:
             for m in graph.read_messages(folder, since, until, top=max_items * 2):
                 subject = m.get("subject", "")
-                blob = f"{subject}\n{m.get('preview', '')}".lower()
+                blob = f"{subject}\n{m.get('preview', '')}\n{m.get('from', '')}".lower()
                 if kws and not any(k in blob for k in kws):
+                    continue
+                if excl and any(e in blob for e in excl):
                     continue
                 key = f"{subject}|{m.get('from', '')}|{m.get('received', '')}"
                 if key in seen:
@@ -234,6 +239,7 @@ def collect_email(name: str, graph, folders: list[str], ww: WorkWeek,
 
 def collect_calendar(name: str, ww: WorkWeek, lookahead_days: int = 7,
                      meetings_only: bool = True, keywords: list[str] | None = None,
+                     exclude: list[str] | None = None,
                      max_items: int = 30) -> SourceResult:
     """Read meeting contents from the LOCAL Outlook client via COM (pywin32).
 
@@ -249,6 +255,7 @@ def collect_calendar(name: str, ww: WorkWeek, lookahead_days: int = 7,
 
     res = SourceResult(name=name, kind="calendar")
     kws = [k.lower() for k in (keywords or [])]
+    excl = [e.lower() for e in (exclude or [])]
 
     try:
         import pythoncom  # type: ignore
@@ -307,7 +314,10 @@ def collect_calendar(name: str, ww: WorkWeek, lookahead_days: int = 7,
             except Exception:  # noqa: BLE001
                 start_str = ""
 
-            if kws and not any(k in f"{subject}\n{body}".lower() for k in kws):
+            blob = f"{subject}\n{body}\n{organizer}\n{location}".lower()
+            if kws and not any(k in blob for k in kws):
+                continue
+            if excl and any(e in blob for e in excl):
                 continue
             key = f"{subject}|{start_str}"
             if key in seen:
